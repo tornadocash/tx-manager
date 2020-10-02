@@ -15,7 +15,9 @@ const gasPriceErrors = [
 ]
 
 // prettier-ignore
-const sameTxErrors = ['Returned error: Transaction with the same hash was already imported.']
+const sameTxErrors = [
+  'Returned error: Transaction with the same hash was already imported.',
+]
 
 class Transaction {
   constructor(tx, manager) {
