@@ -291,7 +291,7 @@ class Transaction {
    * @private
    */
   _hasError(message, errors) {
-    return errors.find((e) => (typeof e === 'string' ? e === message : message.match(e))) !== undefined
+    return errors.find(e => (typeof e === 'string' ? e === message : message.match(e))) !== undefined
   }
 
   _increaseGasPrice() {
