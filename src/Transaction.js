@@ -62,6 +62,7 @@ class Transaction {
     }
     if (!tx.gas) {
       tx.gas = await this._web3.eth.estimateGas(tx)
+      tx.gas = Math.floor(tx.gas * 1.1)
     }
     tx.nonce = this.tx.nonce // can be different from `this.manager._nonce`
     tx.gasPrice = Math.max(this.tx.gasPrice, tx.gasPrice || 0) // start no less than current tx gas price
@@ -91,7 +92,7 @@ class Transaction {
    * @private
    */
   async _execute() {
-    const release = await this.manager._mutex.acquire()
+    await this.manager._mutex.acquire()
     try {
       await this._prepare()
       await this._send()
@@ -100,7 +101,7 @@ class Transaction {
       this.manager._nonce = this.tx.nonce + 1
       return receipt
     } finally {
-      release()
+      this.manager._mutex.release()
     }
   }
 
@@ -113,7 +114,7 @@ class Transaction {
   async _prepare() {
     const gas = await this._web3.eth.estimateGas(this.tx)
     if (!this.tx.gas) {
-      this.tx.gas = gas
+      this.tx.gas = Math.floor(gas * 1.1)
     }
     if (!this.tx.gasPrice) {
       this.tx.gasPrice = await this._getGasPrice('fast')
@@ -199,6 +200,7 @@ class Transaction {
         continue
       }
 
+      // There is a mined tx with our nonce, let's see if it has a known hash
       let receipt = await this._getReceipts()
 
       // There is a mined tx with current nonce, but it's not one of ours
