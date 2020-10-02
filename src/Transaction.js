@@ -14,9 +14,7 @@ const gasPriceErrors = [
   /Returned error: Transaction gas price \d+wei is too low. There is another transaction with same nonce in the queue with gas price: \d+wei. Try increasing the gas price or incrementing the nonce./,
 ]
 
-const sameTxErrors = [
-  'Returned error: Transaction with the same hash was already imported.',
-]
+const sameTxErrors = ['Returned error: Transaction with the same hash was already imported.']
 
 class Transaction {
   constructor(tx, manager) {
@@ -41,9 +39,7 @@ class Transaction {
       throw new Error('The transaction was already executed')
     }
     this.executed = true
-    this._execute()
-      .then(this._promise.resolve)
-      .catch(this._promise.reject)
+    this._execute().then(this._promise.resolve).catch(this._promise.reject)
     return this._emitter
   }
 
@@ -184,7 +180,7 @@ class Transaction {
       }
 
       // Tx is still pending
-      if (await this._getLastNonce() <= this.tx.nonce) {
+      if ((await this._getLastNonce()) <= this.tx.nonce) {
         // todo optionally run estimateGas on each iteration and cancel the transaction if it fails
 
         // We were waiting too long, increase gas price and resubmit
@@ -206,7 +202,7 @@ class Transaction {
       // There is a mined tx with current nonce, but it's not one of ours
       // Probably other tx submitted by other process/client
       if (!receipt) {
-        console.log('Can\'t find our transaction receipt, retrying a few times')
+        console.log("Can't find our transaction receipt, retrying a few times")
         // Give node a few more attempts to respond with our receipt
         let retries = 5
         while (!receipt && retries--) {
@@ -217,7 +213,9 @@ class Transaction {
         // Receipt was not found after a few retries
         // Resubmit our tx
         if (!receipt) {
-          console.log('There is a mined tx with our nonce but unknown tx hash, resubmitting with tx with increased nonce')
+          console.log(
+            'There is a mined tx with our nonce but unknown tx hash, resubmitting with tx with increased nonce',
+          )
           this.tx.nonce++
           // todo drop gas price to original value?
           await this._send()
@@ -293,7 +291,7 @@ class Transaction {
    * @private
    */
   _hasError(message, errors) {
-    return errors.find(e => typeof e === 'string' ? e === message : message.match(e)) !== undefined
+    return errors.find((e) => (typeof e === 'string' ? e === message : message.match(e))) !== undefined
   }
 
   _increaseGasPrice() {

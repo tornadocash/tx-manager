@@ -3,5 +3,5 @@ const Transaction = require('./src/Transaction')
 
 module.exports = {
   TxManager,
-  Transaction
+  Transaction,
 }

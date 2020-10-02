@@ -30,7 +30,8 @@ describe('TxManager', () => {
     it('should work', async () => {
       const tx = manager.createTx(tx1)
 
-      const receipt = await tx.send()
+      const receipt = await tx
+        .send()
         .on('transactionHash', (hash) => console.log('hash', hash))
         .on('mined', (receipt) => console.log('Mined in block', receipt.blockNumber))
         .on('confirmations', (confirmations) => console.log('confirmations', confirmations))
@@ -43,7 +44,8 @@ describe('TxManager', () => {
 
       setTimeout(() => tx.cancel(), 1000)
 
-      const receipt = await tx.send()
+      const receipt = await tx
+        .send()
         .on('transactionHash', (hash) => console.log('hash', hash))
         .on('mined', (receipt) => console.log('Mined in block', receipt.blockNumber))
         .on('confirmations', (confirmations) => console.log('confirmations', confirmations))
@@ -56,7 +58,8 @@ describe('TxManager', () => {
 
       setTimeout(() => tx.replace(tx2), 1000)
 
-      const receipt = await tx.send()
+      const receipt = await tx
+        .send()
         .on('transactionHash', (hash) => console.log('hash', hash))
         .on('mined', (receipt) => console.log('Mined in block', receipt.blockNumber))
         .on('confirmations', (confirmations) => console.log('confirmations', confirmations))
