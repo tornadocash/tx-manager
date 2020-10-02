@@ -14,7 +14,10 @@ const gasPriceErrors = [
   /Returned error: Transaction gas price \d+wei is too low. There is another transaction with same nonce in the queue with gas price: \d+wei. Try increasing the gas price or incrementing the nonce./,
 ]
 
-const sameTxErrors = ['Returned error: Transaction with the same hash was already imported.']
+// prettier-ignore
+const sameTxErrors = [
+  "Returned error: Transaction with the same hash was already imported."
+];
 
 class Transaction {
   constructor(tx, manager) {
