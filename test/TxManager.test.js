@@ -32,9 +32,9 @@ describe('TxManager', () => {
 
       const receipt = await tx
         .send()
-        .on('transactionHash', (hash) => console.log('hash', hash))
-        .on('mined', (receipt) => console.log('Mined in block', receipt.blockNumber))
-        .on('confirmations', (confirmations) => console.log('confirmations', confirmations))
+        .on('transactionHash', hash => console.log('hash', hash))
+        .on('mined', receipt => console.log('Mined in block', receipt.blockNumber))
+        .on('confirmations', confirmations => console.log('confirmations', confirmations))
 
       console.log('receipt', receipt)
     })
@@ -46,9 +46,9 @@ describe('TxManager', () => {
 
       const receipt = await tx
         .send()
-        .on('transactionHash', (hash) => console.log('hash', hash))
-        .on('mined', (receipt) => console.log('Mined in block', receipt.blockNumber))
-        .on('confirmations', (confirmations) => console.log('confirmations', confirmations))
+        .on('transactionHash', hash => console.log('hash', hash))
+        .on('mined', receipt => console.log('Mined in block', receipt.blockNumber))
+        .on('confirmations', confirmations => console.log('confirmations', confirmations))
 
       console.log('receipt', receipt)
     })
@@ -60,9 +60,9 @@ describe('TxManager', () => {
 
       const receipt = await tx
         .send()
-        .on('transactionHash', (hash) => console.log('hash', hash))
-        .on('mined', (receipt) => console.log('Mined in block', receipt.blockNumber))
-        .on('confirmations', (confirmations) => console.log('confirmations', confirmations))
+        .on('transactionHash', hash => console.log('hash', hash))
+        .on('mined', receipt => console.log('Mined in block', receipt.blockNumber))
+        .on('confirmations', confirmations => console.log('confirmations', confirmations))
 
       console.log('receipt', receipt)
     })

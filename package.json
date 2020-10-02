@@ -4,7 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "lint": "eslint .",
+    "eslint": "eslint --ext .js --ignore-path .gitignore .",
+    "prettier:check": "npx prettier --check . --config .prettierrc",
+    "prettier:fix": "npx prettier --write . --config .prettierrc",
+    "lint": "yarn eslint && yarn prettier:check",
     "test": "mocha --timeout 300000"
   },
   "keywords": [],

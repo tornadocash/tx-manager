@@ -1,7 +1,7 @@
 /**
  * A promise that resolves after `ms` milliseconds
  */
-const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
+const sleep = ms => new Promise(res => setTimeout(res, ms))
 
 /**
  * A promise that resolves when the source emits specified event
