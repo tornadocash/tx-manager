@@ -111,9 +111,11 @@ class Transaction {
    * @private
    */
   async _prepare() {
-    const gas = await this._web3.eth.estimateGas(this.tx)
-    if (!this.tx.gas) {
-      this.tx.gas = Math.floor(gas * 1.1)
+    if (!this.tx.gas || this.config.ESTIMATE_GAS) {
+      const gas = await this._web3.eth.estimateGas(this.tx)
+      if (!this.tx.gas) {
+        this.tx.gas = Math.floor(gas * 1.1)
+      }
     }
     if (!this.tx.gasPrice) {
       this.tx.gasPrice = await this._getGasPrice('fast')

@@ -11,6 +11,7 @@ const defaultConfig = {
   MAX_GAS_PRICE: 1000,
   POLL_INTERVAL: 5000,
   CONFIRMATIONS: 8,
+  ESTIMATE_GAS: true,
 }
 
 class TxManager {
