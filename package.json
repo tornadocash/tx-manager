@@ -5,8 +5,8 @@
   "main": "index.js",
   "scripts": {
     "eslint": "eslint --ext .js --ignore-path .gitignore .",
-    "prettier:check": "npx prettier --check . --config .prettierrc",
-    "prettier:fix": "npx prettier --write . --config .prettierrc",
+    "prettier:check": "prettier --check . --config .prettierrc",
+    "prettier:fix": "prettier --write . --config .prettierrc",
     "lint": "yarn eslint && yarn prettier:check",
     "test": "mocha --timeout 300000"
   },
