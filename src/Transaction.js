@@ -1,22 +1,23 @@
-const Web3 = require('web3')
+const ethers = require('ethers')
 const { toWei, toHex, toBN, BN, fromWei } = require('web3-utils')
 const PromiEvent = require('web3-core-promievent')
-const { sleep, when } = require('./utils')
+const { sleep } = require('./utils')
 
+// prettier-ignore
 const nonceErrors = [
-  'Returned error: Transaction nonce is too low. Try incrementing the nonce.',
-  'Returned error: nonce too low',
+  'Transaction nonce is too low. Try incrementing the nonce.',
+  'nonce too low'
 ]
 
 const gasPriceErrors = [
-  'Returned error: Transaction gas price supplied is too low. There is another transaction with same nonce in the queue. Try increasing the gas price or incrementing the nonce.',
-  'Returned error: replacement transaction underpriced',
-  /Returned error: Transaction gas price \d+wei is too low. There is another transaction with same nonce in the queue with gas price: \d+wei. Try increasing the gas price or incrementing the nonce./,
+  'Transaction gas price supplied is too low. There is another transaction with same nonce in the queue. Try increasing the gas price or incrementing the nonce.',
+  'replacement transaction underpriced',
+  /Transaction gas price \d+wei is too low. There is another transaction with same nonce in the queue with gas price: \d+wei. Try increasing the gas price or incrementing the nonce./,
 ]
 
 // prettier-ignore
 const sameTxErrors = [
-  'Returned error: Transaction with the same hash was already imported.',
+  'Transaction with the same hash was already imported.',
 ]
 
 class Transaction {
@@ -59,9 +60,9 @@ class Transaction {
       this.tx = { ...tx }
       return
     }
-    if (!tx.gas) {
-      tx.gas = await this._web3.eth.estimateGas(tx)
-      tx.gas = Math.floor(tx.gas * 1.1)
+    if (!tx.gasLimit) {
+      tx.gasLimit = await this._wallet.estimateGas(tx)
+      tx.gasLimit = Math.floor(tx.gasLimit * this.config.GAS_LIMIT_MULTIPLIER)
     }
     tx.nonce = this.tx.nonce // can be different from `this.manager._nonce`
     tx.gasPrice = Math.max(this.tx.gasPrice, tx.gasPrice || 0) // start no less than current tx gas price
@@ -80,7 +81,7 @@ class Transaction {
       from: this.address,
       to: this.address,
       value: 0,
-      gas: 21000,
+      gasLimit: 21000,
     })
   }
 
@@ -111,19 +112,24 @@ class Transaction {
    * @private
    */
   async _prepare() {
-    if (!this.tx.gas || this.config.ESTIMATE_GAS) {
-      const gas = await this._web3.eth.estimateGas(this.tx)
-      if (!this.tx.gas) {
-        this.tx.gas = Math.floor(gas * 1.1)
+    if (!this.tx.gasLimit || this.config.ESTIMATE_GAS) {
+      const gas = await this._wallet.estimateGas(this.tx)
+      if (!this.tx.gasLimit) {
+        this.tx.gasLimit = Math.floor(gas * this.config.GAS_LIMIT_MULTIPLIER)
       }
     }
     if (!this.tx.gasPrice) {
       this.tx.gasPrice = await this._getGasPrice('fast')
     }
     if (!this.manager._nonce) {
-      this.manager._nonce = await this._web3.eth.getTransactionCount(this.address, 'latest')
+      this.manager._nonce = await this._getLastNonce()
     }
     this.tx.nonce = this.manager._nonce
+    if (!this.manager._chainId) {
+      const net = await this._provider.getNetwork()
+      this.manager._chainId = net.chainId
+    }
+    this.tx.chainId = this.manager._chainId
   }
 
   /**
@@ -134,19 +140,19 @@ class Transaction {
    */
   async _send() {
     // todo throw is we attempt to send a tx that attempts to replace already mined tx
-    const signedTx = await this._web3.eth.accounts.signTransaction(this.tx, this._privateKey)
+    const signedTx = await this._wallet.signTransaction(this.tx)
     this.submitTimestamp = Date.now()
-    this.tx.hash = signedTx.transactionHash
-    this.hashes.push(signedTx.transactionHash)
+    const txHash = ethers.utils.keccak256(signedTx)
+    this.hashes.push(txHash)
 
     try {
-      await this._broadcast(signedTx.rawTransaction)
+      await this._broadcast(signedTx)
     } catch (e) {
       return this._handleSendError(e)
     }
 
-    this._emitter.emit('transactionHash', signedTx.transactionHash)
-    console.log(`Broadcasted transaction ${signedTx.transactionHash}`)
+    this._emitter.emit('transactionHash', txHash)
+    console.log(`Broadcasted transaction ${txHash}`)
     console.log(this.tx)
   }
 
@@ -161,7 +167,7 @@ class Transaction {
     while (true) {
       // We are already waiting on certain tx hash
       if (this.currentTxHash) {
-        const receipt = await this._web3.eth.getTransactionReceipt(this.currentTxHash)
+        const receipt = await this._provider.getTransactionReceipt(this.currentTxHash)
 
         if (!receipt) {
           // We were waiting for some tx but it disappeared
@@ -170,7 +176,7 @@ class Transaction {
           continue
         }
 
-        const currentBlock = await this._web3.eth.getBlockNumber()
+        const currentBlock = await this._provider.getBlockNumber()
         const confirmations = Math.max(0, currentBlock - receipt.blockNumber)
         // todo don't emit repeating confirmation count
         this._emitter.emit('confirmations', confirmations)
@@ -236,7 +242,7 @@ class Transaction {
 
   async _getReceipts() {
     for (const hash of this.hashes.reverse()) {
-      const receipt = await this._web3.eth.getTransactionReceipt(hash)
+      const receipt = await this._provider.getTransactionReceipt(hash)
       if (receipt) {
         return receipt
       }
@@ -248,43 +254,48 @@ class Transaction {
    * Broadcasts tx to multiple nodes, waits for tx hash only on main node
    */
   _broadcast(rawTx) {
-    const main = this._web3.eth.sendSignedTransaction(rawTx)
+    const main = this._provider.sendTransaction(rawTx)
     for (const node of this._broadcastNodes) {
       try {
-        new Web3(node).eth.sendSignedTransaction(rawTx)
+        new ethers.providers.JsonRpcProvider(node).sendTransaction(rawTx)
       } catch (e) {
         console.log(`Failed to send transaction to node ${node}: ${e}`)
       }
     }
-    return when(main, 'transactionHash')
+    return main
   }
 
   _handleSendError(e) {
     console.log('Got error', e)
 
-    // nonce is too low, trying to increase and resubmit
-    if (this._hasError(e.message, nonceErrors)) {
-      console.log(`Nonce ${this.tx.nonce} is too low, increasing and retrying`)
-      if (this.retries <= this.config.MAX_RETRIES) {
-        this.tx.nonce++
-        this.retries++
+    if (e.code === 'SERVER_ERROR' && e.error) {
+      const message = e.error.message
+      console.log('Error', e.error.code, e.error.message)
+
+      // nonce is too low, trying to increase and resubmit
+      if (this._hasError(message, nonceErrors)) {
+        console.log(`Nonce ${this.tx.nonce} is too low, increasing and retrying`)
+        if (this.retries <= this.config.MAX_RETRIES) {
+          this.tx.nonce++
+          this.retries++
+          return this._send()
+        }
+      }
+
+      // there is already a pending tx with higher gas price, trying to bump and resubmit
+      if (this._hasError(message, gasPriceErrors)) {
+        console.log(`Gas price ${fromWei(this.tx.gasPrice, 'gwei')} gwei is too low, increasing and retrying`)
+        this._increaseGasPrice()
         return this._send()
+      }
+
+      if (this._hasError(message, sameTxErrors)) {
+        console.log('Same transaction is already in mempool, skipping submit')
+        return // do nothing
       }
     }
 
-    // there is already a pending tx with higher gas price, trying to bump and resubmit
-    if (this._hasError(e.message, gasPriceErrors)) {
-      console.log(`Gas price ${fromWei(this.tx.gasPrice, 'gwei')} gwei is too low, increasing and retrying`)
-      this._increaseGasPrice()
-      return this._send()
-    }
-
-    if (this._hasError(e.message, sameTxErrors)) {
-      console.log('Same transaction is already in mempool, skipping submit')
-      return // do nothing
-    }
-
-    throw new Error(`Send error: ${e.message}`)
+    throw new Error(`Send error: ${e}`)
   }
 
   /**
@@ -337,7 +348,7 @@ class Transaction {
    * @private
    */
   _getLastNonce() {
-    return this._web3.eth.getTransactionCount(this.address, 'latest')
+    return this._wallet.getTransactionCount('latest')
   }
 }
 
