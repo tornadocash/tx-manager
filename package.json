@@ -1,6 +1,6 @@
 {
   "name": "tx-manager",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -13,7 +13,10 @@
   "keywords": [],
   "author": "Roman Semenov <semenov.roma@gmail.com>",
   "license": "ISC",
-  "repository": "https://github.com/tornadocash/tx-manager",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/tornadocash/tx-manager.git"
+  },
   "files": [
     "src/*"
   ],
