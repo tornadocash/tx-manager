@@ -1,6 +1,6 @@
 require('dotenv').config()
 require('chai').should()
-const { toHex, toWei } = require('web3-utils')
+const { parseUnits } = require('ethers').utils
 const TxManager = require('../src/TxManager')
 // const Transaction = require('../src/Transaction')
 const { RPC_URL, PRIVATE_KEY } = process.env
@@ -17,13 +17,13 @@ describe('TxManager', () => {
 
   const tx1 = {
     value: 1,
-    gasPrice: toHex(toWei('1', 'gwei')),
+    gasPrice: parseUnits('1', 'gwei').toHexString(),
     to: '0xA43Ce8Cc89Eff3AA5593c742fC56A30Ef2427CB0',
   }
 
   const tx2 = {
     value: 1,
-    gasPrice: toHex(toWei('0.5', 'gwei')),
+    gasPrice: parseUnits('0.5', 'gwei').toHexString(),
     to: '0xA43Ce8Cc89Eff3AA5593c742fC56A30Ef2427CB0',
   }
 

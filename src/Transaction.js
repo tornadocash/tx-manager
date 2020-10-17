@@ -1,7 +1,8 @@
 const ethers = require('ethers')
-const { toWei, toHex, toBN, BN, fromWei } = require('web3-utils')
+const { parseUnits, formatUnits } = ethers.utils
+const BigNumber = ethers.BigNumber
 const PromiEvent = require('web3-core-promievent')
-const { sleep } = require('./utils')
+const { sleep, min, max } = require('./utils')
 
 // prettier-ignore
 const nonceErrors = [
@@ -284,7 +285,9 @@ class Transaction {
 
       // there is already a pending tx with higher gas price, trying to bump and resubmit
       if (this._hasError(message, gasPriceErrors)) {
-        console.log(`Gas price ${fromWei(this.tx.gasPrice, 'gwei')} gwei is too low, increasing and retrying`)
+        console.log(
+          `Gas price ${formatUnits(this.tx.gasPrice, 'gwei')} gwei is too low, increasing and retrying`,
+        )
         this._increaseGasPrice()
         return this._send()
       }
@@ -311,19 +314,19 @@ class Transaction {
   }
 
   _increaseGasPrice() {
-    const minGweiBump = toBN(toWei(this.config.MIN_GWEI_BUMP.toString(), 'Gwei'))
-    const oldGasPrice = toBN(this.tx.gasPrice)
-    const newGasPrice = BN.max(
-      oldGasPrice.mul(toBN(100 + this.config.GAS_BUMP_PERCENTAGE)).div(toBN(100)),
+    const minGweiBump = parseUnits(this.config.MIN_GWEI_BUMP.toString(), 'gwei')
+    const oldGasPrice = BigNumber.from(this.tx.gasPrice)
+    const newGasPrice = max(
+      oldGasPrice.mul(100 + this.config.GAS_BUMP_PERCENTAGE).div(100),
       oldGasPrice.add(minGweiBump),
     )
-    const maxGasPrice = toBN(toWei(this.config.MAX_GAS_PRICE.toString(), 'gwei'))
-    if (toBN(this.tx.gasPrice).eq(maxGasPrice)) {
+    const maxGasPrice = parseUnits(this.config.MAX_GAS_PRICE.toString(), 'gwei')
+    if (oldGasPrice.eq(maxGasPrice)) {
       console.log('Already at max gas price, not bumping')
       return false
     }
-    this.tx.gasPrice = toHex(BN.min(newGasPrice, maxGasPrice))
-    console.log(`Increasing gas price to ${fromWei(this.tx.gasPrice, 'gwei')} gwei`)
+    this.tx.gasPrice = min(newGasPrice, maxGasPrice).toHexString()
+    console.log(`Increasing gas price to ${formatUnits(this.tx.gasPrice, 'gwei')} gwei`)
     return true
   }
 
@@ -338,7 +341,7 @@ class Transaction {
     const gasPrices = await this._gasPriceOracle.gasPrices()
     const result = gasPrices[type].toString()
     console.log(`${type} gas price is now ${result} gwei`)
-    return toHex(toWei(gasPrices[type].toString(), 'gwei'))
+    return parseUnits(gasPrices[type], 'gwei').toHexString()
   }
 
   /**
