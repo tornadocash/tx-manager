@@ -13,6 +13,7 @@
   "keywords": [],
   "author": "Roman Semenov <semenov.roma@gmail.com>",
   "license": "ISC",
+  "repository": "https://github.com/tornadocash/tx-manager",
   "files": [
     "src/*"
   ],
