@@ -341,7 +341,7 @@ class Transaction {
     const gasPrices = await this._gasPriceOracle.gasPrices()
     const result = gasPrices[type].toString()
     console.log(`${type} gas price is now ${result} gwei`)
-    return parseUnits(gasPrices[type], 'gwei').toHexString()
+    return parseUnits(result, 'gwei').toHexString()
   }
 
   /**
