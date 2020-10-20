@@ -32,9 +32,26 @@ describe('TxManager', () => {
     to: '0x0039F22efB07A647557C7C5d17854CFD6D489eF3',
   }
 
+  const tx4 = {
+    value: 1,
+    to: '0xA43Ce8Cc89Eff3AA5593c742fC56A30Ef2427CB0',
+  }
+
   describe('#transaction', () => {
     it('should work', async () => {
       const tx = manager.createTx(tx1)
+
+      const receipt = await tx
+        .send()
+        .on('transactionHash', hash => console.log('hash', hash))
+        .on('mined', receipt => console.log('Mined in block', receipt.blockNumber))
+        .on('confirmations', confirmations => console.log('confirmations', confirmations))
+
+      console.log('receipt', receipt)
+    })
+
+    it('should fetch gas price', async () => {
+      const tx = manager.createTx(tx4)
 
       const receipt = await tx
         .send()
