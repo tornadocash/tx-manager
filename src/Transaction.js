@@ -154,7 +154,6 @@ class Transaction {
 
     this._emitter.emit('transactionHash', txHash)
     console.log(`Broadcasted transaction ${txHash}`)
-    console.log(this.tx)
   }
 
   /**
