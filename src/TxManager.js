@@ -13,6 +13,7 @@ const defaultConfig = {
   POLL_INTERVAL: 5000,
   CONFIRMATIONS: 8,
   ESTIMATE_GAS: true,
+  THROW_ON_REVERT: true,
 }
 
 class TxManager {

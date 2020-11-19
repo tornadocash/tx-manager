@@ -175,9 +175,6 @@ class Transaction {
           this.currentTxHash = null
           continue
         }
-        if (Number(receipt.status) === 0) {
-          throw new Error('Transaction failed')
-        }
 
         const currentBlock = await this._provider.getBlockNumber()
         const confirmations = Math.max(0, currentBlock - receipt.blockNumber)
@@ -185,6 +182,9 @@ class Transaction {
         this._emitter.emit('confirmations', confirmations)
         if (confirmations >= this.config.CONFIRMATIONS) {
           // Tx is mined and has enough confirmations
+          if (this.config.THROW_ON_REVERT && Number(receipt.status) === 0) {
+            throw new Error('EVM execution failed, so the transaction was reverted.')
+          }
           return receipt
         }
 
@@ -235,10 +235,6 @@ class Transaction {
           await this._send()
           continue
         }
-      }
-
-      if (Number(receipt.status) === 0) {
-        throw new Error('Transaction failed')
       }
 
       this._emitter.emit('mined', receipt)
