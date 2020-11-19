@@ -175,6 +175,9 @@ class Transaction {
           this.currentTxHash = null
           continue
         }
+        if (Number(receipt.status) === 0) {
+          throw new Error('Transaction failed')
+        }
 
         const currentBlock = await this._provider.getBlockNumber()
         const confirmations = Math.max(0, currentBlock - receipt.blockNumber)
@@ -234,7 +237,10 @@ class Transaction {
         }
       }
 
-      console.log('Mined. Start waiting for confirmations...')
+      if (Number(receipt.status) === 0) {
+        throw new Error('Transaction failed')
+      }
+
       this._emitter.emit('mined', receipt)
       this.currentTxHash = receipt.transactionHash
     }
