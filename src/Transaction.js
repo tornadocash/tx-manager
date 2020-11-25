@@ -4,10 +4,10 @@ const BigNumber = ethers.BigNumber
 const PromiEvent = require('web3-core-promievent')
 const { sleep, min, max } = require('./utils')
 
-// prettier-ignore
 const nonceErrors = [
   'Transaction nonce is too low. Try incrementing the nonce.',
-  'nonce too low'
+  'nonce too low',
+  'nonce has already been used',
 ]
 
 const gasPriceErrors = [
@@ -268,11 +268,8 @@ class Transaction {
   }
 
   _handleSendError(e) {
-    console.log('Got error', e)
-
     if (e.code === 'SERVER_ERROR' && e.error) {
       const message = e.error.message
-      console.log('Error', e.error.code, e.error.message)
 
       // nonce is too low, trying to increase and resubmit
       if (this._hasError(message, nonceErrors)) {
