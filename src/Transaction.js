@@ -268,8 +268,8 @@ class Transaction {
   }
 
   _handleSendError(e) {
-    if (e.code === 'SERVER_ERROR' && e.error) {
-      const message = e.error.message
+    if (e.error && e.error.code === 'SERVER_ERROR') {
+      const message = e.error.error.message
 
       // nonce is too low, trying to increase and resubmit
       if (this._hasError(message, nonceErrors)) {
