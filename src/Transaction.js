@@ -13,12 +13,14 @@ const nonceErrors = [
 const gasPriceErrors = [
   'Transaction gas price supplied is too low. There is another transaction with same nonce in the queue. Try increasing the gas price or incrementing the nonce.',
   'replacement transaction underpriced',
+  'transaction underpriced',
   /Transaction gas price \d+wei is too low. There is another transaction with same nonce in the queue with gas price: \d+wei. Try increasing the gas price or incrementing the nonce./,
 ]
 
 // prettier-ignore
 const sameTxErrors = [
   'Transaction with the same hash was already imported.',
+  'already known',
 ]
 
 class Transaction {
@@ -268,8 +270,13 @@ class Transaction {
   }
 
   _handleSendError(e) {
-    if (e.error && e.error.code === 'SERVER_ERROR') {
-      const message = e.error.error.message
+    if (e.error.error) {
+      // Sometimes ethers wraps known errors, unwrap it in this case
+      e = e.error
+    }
+
+    if (e.error && e.code === 'SERVER_ERROR') {
+      const message = e.error.message
 
       // nonce is too low, trying to increase and resubmit
       if (this._hasError(message, nonceErrors)) {
