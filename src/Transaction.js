@@ -118,7 +118,7 @@ class Transaction {
   async _prepare() {
     if (!this.config.BLOCK_GAS_LIMIT) {
       const lastBlock = await this._provider.getBlock('latest')
-      this.config.BLOCK_GAS_LIMIT = lastBlock.gasLimit.toNumber()
+      this.config.BLOCK_GAS_LIMIT = Math.floor(lastBlock.gasLimit.toNumber() * 0.95)
     }
 
     if (!this.tx.gasLimit || this.config.ESTIMATE_GAS) {
