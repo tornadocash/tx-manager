@@ -14,6 +14,7 @@ const defaultConfig = {
   CONFIRMATIONS: 8,
   ESTIMATE_GAS: true,
   THROW_ON_REVERT: true,
+  BLOCK_GAS_LIMIT: null,
 }
 
 class TxManager {
@@ -34,7 +35,11 @@ class TxManager {
    *
    * @param tx Transaction to send
    */
-  createTx(tx) {
+  async createTx(tx) {
+    if (!this.config.BLOCK_GAS_LIMIT) {
+      const lastBlock = await this._provider.getBlock('latest')
+      this.config.BLOCK_GAS_LIMIT = lastBlock.gasLimit.toNumber()
+    }
     return new Transaction(tx, this)
   }
 }

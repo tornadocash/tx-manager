@@ -66,6 +66,7 @@ class Transaction {
     if (!tx.gasLimit) {
       tx.gasLimit = await this._wallet.estimateGas(tx)
       tx.gasLimit = Math.floor(tx.gasLimit * this.config.GAS_LIMIT_MULTIPLIER)
+      tx.gasLimit = Math.min(tx.gasLimit, this.config.BLOCK_GAS_LIMIT)
     }
     tx.nonce = this.tx.nonce // can be different from `this.manager._nonce`
     tx.gasPrice = Math.max(this.tx.gasPrice, tx.gasPrice || 0) // start no less than current tx gas price
@@ -118,7 +119,8 @@ class Transaction {
     if (!this.tx.gasLimit || this.config.ESTIMATE_GAS) {
       const gas = await this._wallet.estimateGas(this.tx)
       if (!this.tx.gasLimit) {
-        this.tx.gasLimit = Math.floor(gas * this.config.GAS_LIMIT_MULTIPLIER)
+        const gasLimit = Math.floor(gas * this.config.GAS_LIMIT_MULTIPLIER)
+        this.tx.gasLimit = Math.min(gasLimit, this.config.BLOCK_GAS_LIMIT)
       }
     }
     if (!this.tx.gasPrice) {
