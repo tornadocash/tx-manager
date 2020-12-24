@@ -10,7 +10,7 @@ describe('TxManager', () => {
     privateKey: PRIVATE_KEY,
     rpcUrl: RPC_URL,
     config: {
-      CONFIRMATIONS: 3,
+      CONFIRMATIONS: 1,
       GAS_BUMP_INTERVAL: 1000 * 15,
     },
   })
@@ -39,7 +39,7 @@ describe('TxManager', () => {
 
   describe('#transaction', () => {
     it('should work', async () => {
-      const tx = await manager.createTx(tx1)
+      const tx = manager.createTx(tx1)
 
       const receipt = await tx
         .send()
@@ -51,7 +51,7 @@ describe('TxManager', () => {
     })
 
     it('should fetch gas price', async () => {
-      const tx = await manager.createTx(tx4)
+      const tx = manager.createTx(tx4)
 
       const receipt = await tx
         .send()
@@ -63,7 +63,7 @@ describe('TxManager', () => {
     })
 
     it('should bump gas price', async () => {
-      const tx = await manager.createTx(tx2)
+      const tx = manager.createTx(tx2)
 
       const receipt = await tx
         .send()
@@ -75,7 +75,7 @@ describe('TxManager', () => {
     })
 
     it('should cancel', async () => {
-      const tx = await manager.createTx(tx2)
+      const tx = manager.createTx(tx2)
 
       setTimeout(() => tx.cancel(), 1000)
 
@@ -89,7 +89,7 @@ describe('TxManager', () => {
     })
 
     it('should replace', async () => {
-      const tx = await manager.createTx(tx2)
+      const tx = manager.createTx(tx2)
 
       setTimeout(() => tx.replace(tx3), 1000)
 

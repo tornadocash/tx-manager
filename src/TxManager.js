@@ -35,11 +35,7 @@ class TxManager {
    *
    * @param tx Transaction to send
    */
-  async createTx(tx) {
-    if (!this.config.BLOCK_GAS_LIMIT) {
-      const lastBlock = await this._provider.getBlock('latest')
-      this.config.BLOCK_GAS_LIMIT = lastBlock.gasLimit.toNumber()
-    }
+  createTx(tx) {
     return new Transaction(tx, this)
   }
 }
