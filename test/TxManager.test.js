@@ -10,7 +10,7 @@ describe('TxManager', () => {
     privateKey: PRIVATE_KEY,
     rpcUrl: RPC_URL,
     config: {
-      CONFIRMATIONS: 3,
+      CONFIRMATIONS: 1,
       GAS_BUMP_INTERVAL: 1000 * 15,
     },
   })

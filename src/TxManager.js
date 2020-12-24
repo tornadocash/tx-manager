@@ -14,6 +14,7 @@ const defaultConfig = {
   CONFIRMATIONS: 8,
   ESTIMATE_GAS: true,
   THROW_ON_REVERT: true,
+  BLOCK_GAS_LIMIT: null,
 }
 
 class TxManager {
