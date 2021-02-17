@@ -326,17 +326,17 @@ class Transaction {
   }
 
   _increaseGasPrice() {
+    const maxGasPrice = parseUnits(this.config.MAX_GAS_PRICE.toString(), 'gwei')
     const minGweiBump = parseUnits(this.config.MIN_GWEI_BUMP.toString(), 'gwei')
     const oldGasPrice = BigNumber.from(this.tx.gasPrice)
+    if (oldGasPrice.gte(maxGasPrice)) {
+      console.log('Already at max gas price, not bumping')
+      return false
+    }
     const newGasPrice = max(
       oldGasPrice.mul(100 + this.config.GAS_BUMP_PERCENTAGE).div(100),
       oldGasPrice.add(minGweiBump),
     )
-    const maxGasPrice = parseUnits(this.config.MAX_GAS_PRICE.toString(), 'gwei')
-    if (oldGasPrice.eq(maxGasPrice)) {
-      console.log('Already at max gas price, not bumping')
-      return false
-    }
     this.tx.gasPrice = min(newGasPrice, maxGasPrice).toHexString()
     console.log(`Increasing gas price to ${formatUnits(this.tx.gasPrice, 'gwei')} gwei`)
     return true
