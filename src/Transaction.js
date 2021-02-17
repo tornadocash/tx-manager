@@ -129,7 +129,9 @@ class Transaction {
       }
     }
     if (!this.tx.gasPrice) {
-      this.tx.gasPrice = await this._getGasPrice('fast')
+      const fastGasPrice = BigNumber.from(await this._getGasPrice('fast'))
+      const maxGasPrice = parseUnits(this.config.MAX_GAS_PRICE.toString(), 'gwei')
+      this.tx.gasPrice = min(fastGasPrice, maxGasPrice).toHexString()
     }
     if (!this.manager._nonce) {
       this.manager._nonce = await this._getLastNonce()
