@@ -100,7 +100,7 @@ class Transaction {
     try {
       await this._prepare()
       await this._send()
-      const receipt = this._waitForConfirmations()
+      const receipt = await this._waitForConfirmations()
       // we could have bumped nonce during execution, so get the latest one + 1
       this.manager._nonce = this.tx.nonce + 1
       return receipt
@@ -302,8 +302,11 @@ class Transaction {
         console.log(
           `Gas price ${formatUnits(this.tx.gasPrice, 'gwei')} gwei is too low, increasing and retrying`,
         )
-        this._increaseGasPrice()
-        return this._send()
+        if (this._increaseGasPrice()) {
+          return this._send()
+        } else {
+          throw new Error('Already at max gas price, but still not enough to submit the transaction')
+        }
       }
 
       if (this._hasError(message, sameTxErrors)) {
