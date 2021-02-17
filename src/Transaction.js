@@ -300,8 +300,11 @@ class Transaction {
         console.log(
           `Gas price ${formatUnits(this.tx.gasPrice, 'gwei')} gwei is too low, increasing and retrying`,
         )
-        this._increaseGasPrice()
-        return this._send()
+        if (this._increaseGasPrice()) {
+          return this._send()
+        } else {
+          throw new Error('Already at max gas price, but still not enough to submit the transaction')
+        }
       }
 
       if (this._hasError(message, sameTxErrors)) {
