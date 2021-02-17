@@ -100,7 +100,7 @@ class Transaction {
     try {
       await this._prepare()
       await this._send()
-      const receipt = this._waitForConfirmations()
+      const receipt = await this._waitForConfirmations()
       // we could have bumped nonce during execution, so get the latest one + 1
       this.manager._nonce = this.tx.nonce + 1
       return receipt
