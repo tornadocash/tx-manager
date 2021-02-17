@@ -101,5 +101,23 @@ describe('TxManager', () => {
 
       console.log('receipt', receipt)
     })
+    it.only('should send multiple txs', async () => {
+      const genTx = value => ({
+        value,
+        to: '0x0039F22efB07A647557C7C5d17854CFD6D489eF3',
+      })
+      await Promise.all([
+        manager.createTx(genTx(1)).send(),
+        manager.createTx(genTx(2)).send(),
+        manager.createTx(genTx(3)).send(),
+        manager.createTx(genTx(4)).send(),
+        manager.createTx(genTx(5)).send(),
+        manager.createTx(genTx(6)).send(),
+        manager.createTx(genTx(7)).send(),
+        manager.createTx(genTx(8)).send(),
+        manager.createTx(genTx(9)).send(),
+        manager.createTx(genTx(10)).send(),
+      ])
+    })
   })
 })

@@ -96,7 +96,7 @@ class Transaction {
    * @private
    */
   async _execute() {
-    await this.manager._mutex.acquire()
+    const mutexRelease = await this.manager._mutex.acquire()
     try {
       await this._prepare()
       await this._send()
@@ -105,7 +105,7 @@ class Transaction {
       this.manager._nonce = this.tx.nonce + 1
       return receipt
     } finally {
-      this.manager._mutex.release()
+      mutexRelease()
     }
   }
 
