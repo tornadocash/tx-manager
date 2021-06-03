@@ -18,14 +18,14 @@ const defaultConfig = {
 }
 
 class TxManager {
-  constructor({ privateKey, rpcUrl, broadcastNodes = [], config = {} }) {
+  constructor({ privateKey, rpcUrl, broadcastNodes = [], config = {}, gasPriceOracleConfig = {} }) {
     this.config = Object.assign({ ...defaultConfig }, config)
     this._privateKey = privateKey.startsWith('0x') ? privateKey : '0x' + privateKey
     this._provider = new ethers.providers.JsonRpcProvider(rpcUrl)
     this._wallet = new ethers.Wallet(this._privateKey, this._provider)
     this.address = this._wallet.address
     this._broadcastNodes = broadcastNodes
-    this._gasPriceOracle = new GasPriceOracle({ defaultRpc: rpcUrl })
+    this._gasPriceOracle = new GasPriceOracle({ defaultRpc: rpcUrl, ...gasPriceOracleConfig })
     this._mutex = new Mutex()
     this._nonce = null
   }
