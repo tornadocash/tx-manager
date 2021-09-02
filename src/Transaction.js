@@ -69,7 +69,14 @@ class Transaction {
       tx.gasLimit = Math.min(tx.gasLimit, this.config.BLOCK_GAS_LIMIT)
     }
     tx.nonce = this.tx.nonce // can be different from `this.manager._nonce`
-    tx.gasPrice = Math.max(this.tx.gasPrice, tx.gasPrice || 0) // start no less than current tx gas price
+
+    // start no less than current tx gas params
+    if (this.tx.gasPrice) {
+      tx.gasPrice = Math.max(this.tx.gasPrice, tx.gasPrice || 0)
+    } else {
+      tx.maxFeePerGas = Math.max(this.tx.maxFeePerGas, tx.maxFeePerGas || 0)
+      tx.maxPriorityFeePerGas = Math.max(this.tx.maxPriorityFeePerGas, tx.maxPriorityFeePerGas || 0)
+    }
 
     this.tx = { ...tx }
     this._increaseGasPrice()
@@ -128,20 +135,25 @@ class Transaction {
         this.tx.gasLimit = Math.min(gasLimit, this.config.BLOCK_GAS_LIMIT)
       }
     }
-    if (!this.tx.gasPrice) {
-      const fastGasPrice = BigNumber.from(await this._getGasPrice('fast'))
-      const maxGasPrice = parseUnits(this.config.MAX_GAS_PRICE.toString(), 'gwei')
-      this.tx.gasPrice = min(fastGasPrice, maxGasPrice).toHexString()
-    }
+
     if (!this.manager._nonce) {
       this.manager._nonce = await this._getLastNonce()
     }
     this.tx.nonce = this.manager._nonce
+
     if (!this.manager._chainId) {
       const net = await this._provider.getNetwork()
       this.manager._chainId = net.chainId
     }
     this.tx.chainId = this.manager._chainId
+
+    if (this.tx.gasPrice || (this.tx.maxFeePerGas && this.tx.maxPriorityFeePerGas)) {
+      return
+    }
+
+    const gasParams = await this._getGasParams()
+
+    this.tx = Object.assign(this.tx, gasParams)
   }
 
   /**
@@ -211,7 +223,7 @@ class Transaction {
         // We were waiting too long, increase gas price and resubmit
         if (Date.now() - this.submitTimestamp >= this.config.GAS_BUMP_INTERVAL) {
           if (this._increaseGasPrice()) {
-            console.log('Resubmitting with higher gas price')
+            console.log('Resubmitting with higher gas params')
             await this._send()
             continue
           }
@@ -333,17 +345,35 @@ class Transaction {
   _increaseGasPrice() {
     const maxGasPrice = parseUnits(this.config.MAX_GAS_PRICE.toString(), 'gwei')
     const minGweiBump = parseUnits(this.config.MIN_GWEI_BUMP.toString(), 'gwei')
-    const oldGasPrice = BigNumber.from(this.tx.gasPrice)
-    if (oldGasPrice.gte(maxGasPrice)) {
-      console.log('Already at max gas price, not bumping')
-      return false
+
+    if (this.tx.gasPrice) {
+      const oldGasPrice = BigNumber.from(this.tx.gasPrice)
+      if (oldGasPrice.gte(maxGasPrice)) {
+        console.log('Already at max gas price, not bumping')
+        return false
+      }
+
+      const newGasPrice = max(
+        oldGasPrice.mul(100 + this.config.GAS_BUMP_PERCENTAGE).div(100),
+        oldGasPrice.add(minGweiBump),
+      )
+      this.tx.gasPrice = min(newGasPrice, maxGasPrice).toHexString()
+      console.log(`Increasing gas price to ${formatUnits(this.tx.gasPrice, 'gwei')} gwei`)
+    } else {
+      const oldMaxFeePerGas = BigNumber.from(this.tx.maxFeePerGas)
+      const oldMaxPriorityFeePerGas = BigNumber.from(this.tx.maxFeePerGas)
+      if (oldMaxFeePerGas.gte(maxGasPrice)) {
+        console.log('Already at max fee per gas, not bumping')
+        return false
+      }
+
+      const newMaxFeePerGas = oldMaxFeePerGas.add(minGweiBump)
+      this.tx.maxFeePerGas = min(newMaxFeePerGas, maxGasPrice).toHexString()
+      this.tx.maxPriorityFeePerGas = oldMaxPriorityFeePerGas.add(minGweiBump).toHexString()
+
+      console.log(`Increasing maxFeePerGas to ${formatUnits(this.tx.maxFeePerGas, 'gwei')} gwei`)
     }
-    const newGasPrice = max(
-      oldGasPrice.mul(100 + this.config.GAS_BUMP_PERCENTAGE).div(100),
-      oldGasPrice.add(minGweiBump),
-    )
-    this.tx.gasPrice = min(newGasPrice, maxGasPrice).toHexString()
-    console.log(`Increasing gas price to ${formatUnits(this.tx.gasPrice, 'gwei')} gwei`)
+
     return true
   }
 
@@ -369,6 +399,52 @@ class Transaction {
    */
   _getLastNonce() {
     return this._wallet.getTransactionCount('latest')
+  }
+
+  /**
+   * Fetches baseFee from chain and calculate fee params
+   *
+   * @returns {Promise<object>}
+   * @private
+   */
+  async _estimateFees() {
+    const block = await this._provider.getBlock('latest')
+
+    let maxFeePerGas = null,
+      maxPriorityFeePerGas = null
+
+    if (block && block.baseFeePerGas) {
+      maxPriorityFeePerGas = BigNumber.from('3000000000')
+      maxFeePerGas = block.baseFeePerGas.mul(125).div(100).add(maxPriorityFeePerGas)
+    }
+    return { maxFeePerGas, maxPriorityFeePerGas }
+  }
+
+  /**
+   * Choose network gas params
+   *
+   * @returns {Promise<object>}
+   * @private
+   */
+  async _getGasParams() {
+    const { maxFeePerGas, maxPriorityFeePerGas } = await this._estimateFees()
+
+    const maxGasPrice = parseUnits(this.config.MAX_GAS_PRICE.toString(), 'gwei')
+
+    // Check network support for EIP-1559
+    if (maxFeePerGas && maxPriorityFeePerGas) {
+      return {
+        maxFeePerGas: min(maxFeePerGas, maxGasPrice).toHexString(),
+        maxPriorityFeePerGas: maxPriorityFeePerGas.toHexString(),
+        type: 2,
+      }
+    } else {
+      const fastGasPrice = BigNumber.from(await this._getGasPrice('fast'))
+      return {
+        gasPrice: min(fastGasPrice, maxGasPrice).toHexString(),
+        type: 0,
+      }
+    }
   }
 }
 
