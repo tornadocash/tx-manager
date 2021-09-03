@@ -15,6 +15,8 @@ const defaultConfig = {
   ESTIMATE_GAS: true,
   THROW_ON_REVERT: true,
   BLOCK_GAS_LIMIT: null,
+  PRIORITY_FEE_GWEI: 3,
+  BASE_FEE_RESERVE_PERCENTAGE: 50,
 }
 
 class TxManager {
