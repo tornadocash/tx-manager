@@ -361,15 +361,23 @@ class Transaction {
       console.log(`Increasing gas price to ${formatUnits(this.tx.gasPrice, 'gwei')} gwei`)
     } else {
       const oldMaxFeePerGas = BigNumber.from(this.tx.maxFeePerGas)
-      const oldMaxPriorityFeePerGas = BigNumber.from(this.tx.maxFeePerGas)
+      const oldMaxPriorityFeePerGas = BigNumber.from(this.tx.maxPriorityFeePerGas)
       if (oldMaxFeePerGas.gte(maxGasPrice)) {
         console.log('Already at max fee per gas, not bumping')
         return false
       }
 
-      const newMaxFeePerGas = oldMaxFeePerGas.add(minGweiBump)
+      const newMaxFeePerGas = max(
+        oldMaxFeePerGas.mul(100 + this.config.GAS_BUMP_PERCENTAGE).div(100),
+        oldMaxFeePerGas.add(minGweiBump),
+      )
+      const newMaxPriorityFeePerGas = max(
+        oldMaxPriorityFeePerGas.mul(100 + this.config.GAS_BUMP_PERCENTAGE).div(100),
+        oldMaxPriorityFeePerGas.add(minGweiBump),
+      )
+
       this.tx.maxFeePerGas = min(newMaxFeePerGas, maxGasPrice).toHexString()
-      this.tx.maxPriorityFeePerGas = oldMaxPriorityFeePerGas.add(minGweiBump).toHexString()
+      this.tx.maxPriorityFeePerGas = min(newMaxPriorityFeePerGas, this.tx.maxFeePerGas).toHexString()
 
       console.log(`Increasing maxFeePerGas to ${formatUnits(this.tx.maxFeePerGas, 'gwei')} gwei`)
     }
@@ -414,8 +422,11 @@ class Transaction {
       maxPriorityFeePerGas = null
 
     if (block && block.baseFeePerGas) {
-      maxPriorityFeePerGas = BigNumber.from('3000000000')
-      maxFeePerGas = block.baseFeePerGas.mul(125).div(100).add(maxPriorityFeePerGas)
+      maxPriorityFeePerGas = parseUnits(this.config.PRIORITY_FEE_GWEI.toString(), 'gwei')
+      maxFeePerGas = block.baseFeePerGas
+        .mul(100 + this.config.BASE_FEE_RESERVE_PERCENTAGE)
+        .div(100)
+        .add(maxPriorityFeePerGas)
     }
     return { maxFeePerGas, maxPriorityFeePerGas }
   }
