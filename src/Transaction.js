@@ -410,43 +410,25 @@ class Transaction {
   }
 
   /**
-   * Fetches baseFee from chain and calculate fee params
-   *
-   * @returns {Promise<object>}
-   * @private
-   */
-  async _estimateFees() {
-    const block = await this._provider.getBlock('latest')
-
-    let maxFeePerGas = null,
-      maxPriorityFeePerGas = null
-
-    if (block && block.baseFeePerGas) {
-      maxPriorityFeePerGas = parseUnits(this.config.PRIORITY_FEE_GWEI.toString(), 'gwei')
-      maxFeePerGas = block.baseFeePerGas
-        .mul(100 + this.config.BASE_FEE_RESERVE_PERCENTAGE)
-        .div(100)
-        .add(maxPriorityFeePerGas)
-    }
-    return { maxFeePerGas, maxPriorityFeePerGas }
-  }
-
-  /**
    * Choose network gas params
    *
    * @returns {Promise<object>}
    * @private
    */
   async _getGasParams() {
-    const { maxFeePerGas, maxPriorityFeePerGas } = await this._estimateFees()
-
     const maxGasPrice = parseUnits(this.config.MAX_GAS_PRICE.toString(), 'gwei')
+    const block = await this._provider.getBlock('latest')
 
     // Check network support for EIP-1559
-    if (maxFeePerGas && maxPriorityFeePerGas) {
+    if (block && block.baseFeePerGas) {
+      const maxPriorityFeePerGas = parseUnits(this.config.PRIORITY_FEE_GWEI.toString(), 'gwei')
+      const maxFeePerGas = block.baseFeePerGas
+        .mul(100 + this.config.BASE_FEE_RESERVE_PERCENTAGE)
+        .div(100)
+        .add(maxPriorityFeePerGas)
       return {
         maxFeePerGas: min(maxFeePerGas, maxGasPrice).toHexString(),
-        maxPriorityFeePerGas: maxPriorityFeePerGas.toHexString(),
+        maxPriorityFeePerGas: min(maxPriorityFeePerGas, maxGasPrice).toHexString(),
         type: 2,
       }
     } else {
