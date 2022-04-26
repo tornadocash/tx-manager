@@ -122,6 +122,22 @@ describe('TxManager', () => {
       console.log('receipt', receipt)
     })
 
+    it('should increase nonce', async () => {
+      const currentNonce = await manager._wallet.getTransactionCount('latest')
+
+      manager._nonce = currentNonce - 1
+
+      const tx = manager.createTx(tx4)
+
+      const receipt = await tx
+        .send()
+        .on('transactionHash', hash => console.log('hash', hash))
+        .on('mined', receipt => console.log('Mined in block', receipt.blockNumber))
+        .on('confirmations', confirmations => console.log('confirmations', confirmations))
+
+      console.log('receipt', receipt)
+    })
+
     it('should send multiple txs', async () => {
       const genTx = value => ({
         value,
@@ -139,6 +155,6 @@ describe('TxManager', () => {
         manager.createTx(genTx(9)).send(),
         manager.createTx(genTx(10)).send(),
       ])
-    })
+    }).timeout(600000)
   })
 })
