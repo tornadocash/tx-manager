@@ -1,19 +1,13 @@
 require('dotenv').config()
 require('chai').should()
+const { providers } = require('ethers')
 const { parseUnits } = require('ethers').utils
 const TxManager = require('../src/TxManager')
 // const Transaction = require('../src/Transaction')
 const { RPC_URL, PRIVATE_KEY } = process.env
 
 describe('TxManager', () => {
-  const manager = new TxManager({
-    privateKey: PRIVATE_KEY,
-    rpcUrl: RPC_URL,
-    config: {
-      CONFIRMATIONS: 1,
-      GAS_BUMP_INTERVAL: 1000 * 20,
-    },
-  })
+  let manager
 
   const tx1 = {
     value: 1,
@@ -44,6 +38,26 @@ describe('TxManager', () => {
     maxPriorityFeePerGas: parseUnits('1', 'gwei').toHexString(),
     type: 2,
   }
+
+  before(async () => {
+    const provider = new providers.JsonRpcProvider(RPC_URL)
+
+    const { name, chainId } = await provider.getNetwork()
+    console.log('\n\n', 'network', { name, chainId }, '\n\n')
+
+    manager = new TxManager({
+      privateKey: PRIVATE_KEY,
+      rpcUrl: RPC_URL,
+      config: {
+        CONFIRMATIONS: 1,
+        GAS_BUMP_INTERVAL: 1000 * 20,
+      },
+      gasPriceOracleConfig: {
+        chainId: chainId,
+        defaultRpc: RPC_URL,
+      },
+    })
+  })
 
   describe('#transaction', () => {
     it('should work legacy tx', async () => {
@@ -136,6 +150,20 @@ describe('TxManager', () => {
         .on('confirmations', confirmations => console.log('confirmations', confirmations))
 
       console.log('receipt', receipt)
+    })
+
+    it('should disable eip-1559 transactions', async () => {
+      manager.config.ENABLE_EIP1559 = false
+
+      const tx = manager.createTx(tx3)
+      const receipt = await tx
+        .send()
+        .on('transactionHash', hash => console.log('hash', hash))
+        .on('mined', receipt => console.log('Mined in block', receipt.blockNumber))
+        .on('confirmations', confirmations => console.log('confirmations', confirmations))
+      console.log('receipt', receipt)
+
+      manager.config.ENABLE_EIP1559 = true
     })
 
     it('should send multiple txs', async () => {
