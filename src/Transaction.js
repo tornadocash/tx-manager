@@ -465,7 +465,7 @@ class Transaction {
     const block = await this._provider.getBlock('latest')
 
     // Check network support for EIP-1559
-    if (block && block.baseFeePerGas) {
+    if (this.config.ENABLE_EIP1559 && block && block.baseFeePerGas) {
       const maxPriorityFeePerGas = await this._estimatePriorityFee(block.number)
 
       const maxFeePerGas = block.baseFeePerGas

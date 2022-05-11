@@ -15,6 +15,7 @@ const defaultConfig = {
   ESTIMATE_GAS: true,
   THROW_ON_REVERT: true,
   BLOCK_GAS_LIMIT: null,
+  ENABLE_EIP1559: true,
   PRIORITY_FEE_GWEI: 3,
   BASE_FEE_RESERVE_PERCENTAGE: 50,
 }
