@@ -112,7 +112,7 @@ export class Transaction {
 
   private _increaseGasPrice(): boolean
 
-  private _hasError(message, errors: (string | RegExp)[]): boolean
+  private _hasError(message: string, errors: (string | RegExp)[]): boolean
 
   private _getGasPrice(type: 'instant' | 'fast' | 'normal' | 'slow'): Promise<string>
 
