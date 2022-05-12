@@ -1,3 +1,4 @@
+'use strict'
 const ethers = require('ethers')
 const { parseUnits, formatUnits } = ethers.utils
 const BigNumber = ethers.BigNumber
@@ -25,7 +26,6 @@ const sameTxErrors = [
 
 class Transaction {
   constructor(tx, manager) {
-    Object.assign(this, manager)
     this.manager = manager
     this.tx = { ...tx }
     this._promise = PromiEvent()
@@ -64,18 +64,18 @@ class Transaction {
       return
     }
     if (!tx.gasLimit) {
-      tx.gasLimit = await this._wallet.estimateGas(tx)
-      tx.gasLimit = Math.floor(tx.gasLimit * this.config.GAS_LIMIT_MULTIPLIER)
-      tx.gasLimit = Math.min(tx.gasLimit, this.config.BLOCK_GAS_LIMIT)
+      tx.gasLimit = await this.manager._wallet.estimateGas(tx)
+      tx.gasLimit = Math.floor(tx.gasLimit.mul(this.manager.config.GAS_LIMIT_MULTIPLIER).toNumber())
+      tx.gasLimit = min(tx.gasLimit, this.manager.config.BLOCK_GAS_LIMIT)
     }
     tx.nonce = this.tx.nonce // can be different from `this.manager._nonce`
 
     // start no less than current tx gas params
     if (this.tx.gasPrice) {
-      tx.gasPrice = Math.max(this.tx.gasPrice, tx.gasPrice || 0)
+      tx.gasPrice = max(this.tx.gasPrice, tx.gasPrice || 0)
     } else {
-      tx.maxFeePerGas = Math.max(this.tx.maxFeePerGas, tx.maxFeePerGas || 0)
-      tx.maxPriorityFeePerGas = Math.max(this.tx.maxPriorityFeePerGas, tx.maxPriorityFeePerGas || 0)
+      tx.maxFeePerGas = max(this.tx.maxFeePerGas, tx.maxFeePerGas || 0)
+      tx.maxPriorityFeePerGas = max(this.tx.maxPriorityFeePerGas, tx.maxPriorityFeePerGas || 0)
     }
 
     this.tx = { ...tx }
@@ -89,8 +89,8 @@ class Transaction {
   cancel() {
     console.log('Canceling the transaction')
     return this.replace({
-      from: this.address,
-      to: this.address,
+      from: this.manager.address,
+      to: this.manager.address,
       value: 0,
       gasLimit: 21000,
     })
@@ -123,16 +123,16 @@ class Transaction {
    * @private
    */
   async _prepare() {
-    if (!this.config.BLOCK_GAS_LIMIT) {
-      const lastBlock = await this._provider.getBlock('latest')
-      this.config.BLOCK_GAS_LIMIT = Math.floor(lastBlock.gasLimit.toNumber() * 0.95)
+    if (!this.manager.config.BLOCK_GAS_LIMIT) {
+      const lastBlock = await this.manager._provider.getBlock('latest')
+      this.manager.config.BLOCK_GAS_LIMIT = Math.floor(lastBlock.gasLimit.toNumber() * 0.95)
     }
 
-    if (!this.tx.gasLimit || this.config.ESTIMATE_GAS) {
-      const gas = await this._wallet.estimateGas(this.tx)
+    if (!this.tx.gasLimit || this.manager.config.ESTIMATE_GAS) {
+      const gas = await this.manager._wallet.estimateGas(this.tx)
       if (!this.tx.gasLimit) {
-        const gasLimit = Math.floor(gas * this.config.GAS_LIMIT_MULTIPLIER)
-        this.tx.gasLimit = Math.min(gasLimit, this.config.BLOCK_GAS_LIMIT)
+        const gasLimit = Math.floor(gas * this.manager.config.GAS_LIMIT_MULTIPLIER)
+        this.tx.gasLimit = Math.min(gasLimit, this.manager.config.BLOCK_GAS_LIMIT)
       }
     }
 
@@ -142,7 +142,7 @@ class Transaction {
     this.tx.nonce = this.manager._nonce
 
     if (!this.manager._chainId) {
-      const net = await this._provider.getNetwork()
+      const net = await this.manager._provider.getNetwork()
       this.manager._chainId = net.chainId
     }
     this.tx.chainId = this.manager._chainId
@@ -164,7 +164,7 @@ class Transaction {
    */
   async _send() {
     // todo throw is we attempt to send a tx that attempts to replace already mined tx
-    const signedTx = await this._wallet.signTransaction(this.tx)
+    const signedTx = await this.manager._wallet.signTransaction(this.tx)
     this.submitTimestamp = Date.now()
     const txHash = ethers.utils.keccak256(signedTx)
     this.hashes.push(txHash)
@@ -190,7 +190,7 @@ class Transaction {
     while (true) {
       // We are already waiting on certain tx hash
       if (this.currentTxHash) {
-        const receipt = await this._provider.getTransactionReceipt(this.currentTxHash)
+        const receipt = await this.manager._provider.getTransactionReceipt(this.currentTxHash)
 
         if (!receipt) {
           // We were waiting for some tx but it disappeared
@@ -199,20 +199,20 @@ class Transaction {
           continue
         }
 
-        const currentBlock = await this._provider.getBlockNumber()
+        const currentBlock = await this.manager._provider.getBlockNumber()
         const confirmations = Math.max(0, currentBlock - receipt.blockNumber)
         // todo don't emit repeating confirmation count
         this._emitter.emit('confirmations', confirmations)
-        if (confirmations >= this.config.CONFIRMATIONS) {
+        if (confirmations >= this.manager.config.CONFIRMATIONS) {
           // Tx is mined and has enough confirmations
-          if (this.config.THROW_ON_REVERT && Number(receipt.status) === 0) {
+          if (this.manager.config.THROW_ON_REVERT && Number(receipt.status) === 0) {
             throw new Error('EVM execution failed, so the transaction was reverted.')
           }
           return receipt
         }
 
         // Tx is mined but doesn't have enough confirmations yet, keep waiting
-        await sleep(this.config.POLL_INTERVAL)
+        await sleep(this.manager.config.POLL_INTERVAL)
         continue
       }
 
@@ -221,7 +221,7 @@ class Transaction {
         // todo optionally run estimateGas on each iteration and cancel the transaction if it fails
 
         // We were waiting too long, increase gas price and resubmit
-        if (Date.now() - this.submitTimestamp >= this.config.GAS_BUMP_INTERVAL) {
+        if (Date.now() - this.submitTimestamp >= this.manager.config.GAS_BUMP_INTERVAL) {
           if (this._increaseGasPrice()) {
             console.log('Resubmitting with higher gas params')
             await this._send()
@@ -229,7 +229,7 @@ class Transaction {
           }
         }
         // Tx is still pending, keep waiting
-        await sleep(this.config.POLL_INTERVAL)
+        await sleep(this.manager.config.POLL_INTERVAL)
         continue
       }
 
@@ -267,7 +267,7 @@ class Transaction {
 
   async _getReceipts() {
     for (const hash of this.hashes.reverse()) {
-      const receipt = await this._provider.getTransactionReceipt(hash)
+      const receipt = await this.manager._provider.getTransactionReceipt(hash)
       if (receipt) {
         return receipt
       }
@@ -278,11 +278,11 @@ class Transaction {
   /**
    * Broadcasts tx to multiple nodes, waits for tx hash only on main node
    */
-  _broadcast(rawTx) {
-    const main = this._provider.sendTransaction(rawTx)
-    for (const node of this._broadcastNodes) {
+  async _broadcast(rawTx) {
+    const main = await this.manager._provider.sendTransaction(rawTx)
+    for (const node of this.manager._broadcastNodes) {
       try {
-        new ethers.providers.JsonRpcProvider(node).sendTransaction(rawTx)
+        await new ethers.providers.JsonRpcProvider(node).sendTransaction(rawTx)
       } catch (e) {
         console.log(`Failed to send transaction to node ${node}: ${e}`)
       }
@@ -302,7 +302,7 @@ class Transaction {
       // nonce is too low, trying to increase and resubmit
       if (this._hasError(message, nonceErrors)) {
         console.log(`Nonce ${this.tx.nonce} is too low, increasing and retrying`)
-        if (this.retries <= this.config.MAX_RETRIES) {
+        if (this.retries <= this.manager.config.MAX_RETRIES) {
           this.tx.nonce++
           this.retries++
           return this._send()
@@ -343,8 +343,8 @@ class Transaction {
   }
 
   _increaseGasPrice() {
-    const maxGasPrice = parseUnits(this.config.MAX_GAS_PRICE.toString(), 'gwei')
-    const minGweiBump = parseUnits(this.config.MIN_GWEI_BUMP.toString(), 'gwei')
+    const maxGasPrice = parseUnits(this.manager.config.MAX_GAS_PRICE.toString(), 'gwei')
+    const minGweiBump = parseUnits(this.manager.config.MIN_GWEI_BUMP.toString(), 'gwei')
 
     if (this.tx.gasPrice) {
       const oldGasPrice = BigNumber.from(this.tx.gasPrice)
@@ -354,7 +354,7 @@ class Transaction {
       }
 
       const newGasPrice = max(
-        oldGasPrice.mul(100 + this.config.GAS_BUMP_PERCENTAGE).div(100),
+        oldGasPrice.mul(100 + this.manager.config.GAS_BUMP_PERCENTAGE).div(100),
         oldGasPrice.add(minGweiBump),
       )
       this.tx.gasPrice = min(newGasPrice, maxGasPrice).toHexString()
@@ -368,11 +368,11 @@ class Transaction {
       }
 
       const newMaxFeePerGas = max(
-        oldMaxFeePerGas.mul(100 + this.config.GAS_BUMP_PERCENTAGE).div(100),
+        oldMaxFeePerGas.mul(100 + this.manager.config.GAS_BUMP_PERCENTAGE).div(100),
         oldMaxFeePerGas.add(minGweiBump),
       )
       const newMaxPriorityFeePerGas = max(
-        oldMaxPriorityFeePerGas.mul(100 + this.config.GAS_BUMP_PERCENTAGE).div(100),
+        oldMaxPriorityFeePerGas.mul(100 + this.manager.config.GAS_BUMP_PERCENTAGE).div(100),
         oldMaxPriorityFeePerGas.add(minGweiBump),
       )
 
@@ -393,7 +393,7 @@ class Transaction {
    * @private
    */
   async _getGasPrice(type) {
-    const gasPrices = await this._gasPriceOracle.gasPrices()
+    const gasPrices = await this.manager._gasPriceOracle.gasPrices()
     const result = gasPrices[type].toString()
     console.log(`${type} gas price is now ${result} gwei`)
     return parseUnits(result, 'gwei').toHexString()
@@ -406,7 +406,7 @@ class Transaction {
    * @private
    */
   _getLastNonce() {
-    return this._wallet.getTransactionCount('latest')
+    return this.manager._wallet.getTransactionCount('latest')
   }
 
   /**
@@ -416,14 +416,14 @@ class Transaction {
    * @private
    */
   async _getGasParams() {
-    const maxGasPrice = parseUnits(this.config.MAX_GAS_PRICE.toString(), 'gwei')
-    const block = await this._provider.getBlock('latest')
+    const maxGasPrice = parseUnits(this.manager.config.MAX_GAS_PRICE.toString(), 'gwei')
+    const block = await this.manager._provider.getBlock('latest')
 
     // Check network support for EIP-1559
     if (block && block.baseFeePerGas) {
-      const maxPriorityFeePerGas = parseUnits(this.config.PRIORITY_FEE_GWEI.toString(), 'gwei')
+      const maxPriorityFeePerGas = parseUnits(this.manager.config.PRIORITY_FEE_GWEI.toString(), 'gwei')
       const maxFeePerGas = block.baseFeePerGas
-        .mul(100 + this.config.BASE_FEE_RESERVE_PERCENTAGE)
+        .mul(100 + this.manager.config.BASE_FEE_RESERVE_PERCENTAGE)
         .div(100)
         .add(maxPriorityFeePerGas)
       return {

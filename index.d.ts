@@ -45,15 +45,15 @@ export interface TxManagerParams {
 }
 
 export class TxManager {
+  private _privateKey: string
   config: TxManagerConfig
   address: string
-  private _privateKey: string
-  private _provider: providers.JsonRpcProvider
-  private _wallet: Wallet
-  private _broadcastNodes: string[]
-  private _gasPriceOracle: GasPriceOracle
-  private _mutex: Mutex
-  private _nonce: number
+  _provider: providers.JsonRpcProvider
+  _wallet: Wallet
+  _broadcastNodes: string[]
+  _gasPriceOracle: GasPriceOracle
+  _mutex: Mutex
+  _nonce: number
 
   constructor(params?: TxManagerParams)
 
