@@ -1,5 +1,5 @@
 const ethers = require('ethers')
-const { parseUnits, formatUnits, hexValue } = ethers.utils
+const { parseUnits, formatUnits } = ethers.utils
 const BigNumber = ethers.BigNumber
 const PromiEvent = require('web3-core-promievent')
 const { sleep, min, max } = require('./utils')
@@ -429,25 +429,21 @@ class Transaction {
    * @returns {Promise<BigNumber>}
    * @private
    */
-  async _estimatePriorityFee(blockNumber) {
-    const feeHistoryBlocks = 1
-    const feeHistoryPercentile = 50
-    const defaultPriorityFee = parseUnits(this.config.PRIORITY_FEE_GWEI.toString(), 'gwei')
+  async _estimatePriorityFee() {
+    const defaultPriorityFee = parseUnits(this.config.DEFAULT_PRIORITY_FEE.toString(), 'gwei')
 
     try {
-      const { reward } = await this._provider.send('eth_feeHistory', [
-        hexValue(feeHistoryBlocks),
-        hexValue(blockNumber),
-        [feeHistoryPercentile],
-      ])
+      const estimatedPriorityFee = await this._provider.send('eth_maxPriorityFeePerGas', [])
 
-      const historyPriorityFee = reward[0][0]
-
-      if (historyPriorityFee) {
-        return max(BigNumber.from(historyPriorityFee), defaultPriorityFee)
+      if (!estimatedPriorityFee || isNaN(estimatedPriorityFee)) {
+        return defaultPriorityFee
       }
 
-      return defaultPriorityFee
+      const bumpedPriorityFee = BigNumber.from(estimatedPriorityFee)
+        .mul(100 + this.config.PRIORITY_FEE_RESERVE_PERCENTAGE)
+        .div(100)
+
+      return max(bumpedPriorityFee, defaultPriorityFee)
     } catch (err) {
       console.error('_estimatePriorityFee has error:', err.message)
       return defaultPriorityFee
@@ -466,7 +462,7 @@ class Transaction {
 
     // Check network support for EIP-1559
     if (this.config.ENABLE_EIP1559 && block && block.baseFeePerGas) {
-      const maxPriorityFeePerGas = await this._estimatePriorityFee(block.number)
+      const maxPriorityFeePerGas = await this._estimatePriorityFee()
 
       const maxFeePerGas = block.baseFeePerGas
         .mul(100 + this.config.BASE_FEE_RESERVE_PERCENTAGE)
