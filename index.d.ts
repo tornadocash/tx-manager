@@ -34,6 +34,9 @@ export interface TxManagerConfig {
   BLOCK_GAS_LIMIT?: number
   PRIORITY_FEE_GWEI?: number
   BASE_FEE_RESERVE_PERCENTAGE?: number
+  ENABLE_EIP1559?: boolean
+  DEFAULT_PRIORITY_FEE?: number
+  PRIORITY_FEE_RESERVE_PERCENTAGE?: number
 }
 
 export interface TxManagerParams {
