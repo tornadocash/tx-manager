@@ -28,6 +28,7 @@ class Transaction {
   constructor(tx, manager) {
     this.manager = manager
     this.tx = { ...tx }
+    this.nonce = manager._nonce
     this._promise = PromiEvent()
     this._emitter = this._promise.eventEmitter
     this.executed = false
@@ -64,9 +65,11 @@ class Transaction {
       return
     }
     if (!tx.gasLimit) {
-      tx.gasLimit = await this.manager._wallet.estimateGas(tx)
-      tx.gasLimit = Math.floor(tx.gasLimit.mul(this.manager.config.GAS_LIMIT_MULTIPLIER).toNumber())
-      tx.gasLimit = min(tx.gasLimit, this.manager.config.BLOCK_GAS_LIMIT)
+      const estimatedGasLimit = await this.manager._wallet.estimateGas(tx)
+      tx.gasLimit = min(
+        estimatedGasLimit.mul(this.manager.config.GAS_LIMIT_MULTIPLIER * 100).div(100),
+        this.manager.config.BLOCK_GAS_LIMIT,
+      )
     }
     tx.nonce = this.tx.nonce // can be different from `this.manager._nonce`
 

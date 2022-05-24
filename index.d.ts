@@ -7,13 +7,13 @@ import { Mutex } from 'async-mutex'
 import { Options as GasOracleOptions } from 'gas-price-oracle/lib/types'
 
 export interface TransactionData {
-  to?: string
+  to: string
   from?: string
   nonce?: number
   gasLimit?: BigNumberish
   gasPrice?: BigNumberish
   data?: string
-  value?: BigNumberish
+  value: BigNumberish
   chainId?: number
   type?: number
   maxFeePerGas?: BigNumberish
