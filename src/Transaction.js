@@ -423,34 +423,6 @@ class Transaction {
   }
 
   /**
-   * Fetches priority fee from the chain
-   *
-   * @param blockNumber The newest number block
-   * @returns {Promise<BigNumber>}
-   * @private
-   */
-  async _estimatePriorityFee() {
-    const defaultPriorityFee = parseUnits(this.config.DEFAULT_PRIORITY_FEE.toString(), 'gwei')
-
-    try {
-      const estimatedPriorityFee = await this._provider.send('eth_maxPriorityFeePerGas', [])
-
-      if (!estimatedPriorityFee || isNaN(estimatedPriorityFee)) {
-        return defaultPriorityFee
-      }
-
-      const bumpedPriorityFee = BigNumber.from(estimatedPriorityFee)
-        .mul(100 + this.config.PRIORITY_FEE_RESERVE_PERCENTAGE)
-        .div(100)
-
-      return max(bumpedPriorityFee, defaultPriorityFee)
-    } catch (err) {
-      console.error('_estimatePriorityFee has error:', err.message)
-      return defaultPriorityFee
-    }
-  }
-
-  /**
    * Choose network gas params
    *
    * @returns {Promise<object>}
@@ -462,7 +434,7 @@ class Transaction {
 
     // Check network support for EIP-1559
     if (this.config.ENABLE_EIP1559 && block && block.baseFeePerGas) {
-      const maxPriorityFeePerGas = await this._estimatePriorityFee()
+      const maxPriorityFeePerGas = parseUnits(this.config.DEFAULT_PRIORITY_FEE.toString(), 'gwei')
 
       const maxFeePerGas = block.baseFeePerGas
         .mul(100 + this.config.BASE_FEE_RESERVE_PERCENTAGE)
