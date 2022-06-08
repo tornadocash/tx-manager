@@ -299,7 +299,7 @@ class Transaction {
   }
 
   _handleRpcError(e, method) {
-    if (e.error.error) {
+    if (e.error?.error) {
       // Sometimes ethers wraps known errors, unwrap it in this case
       e = e.error
     }
