@@ -4,6 +4,9 @@
   "description": "",
   "main": "index.js",
   "types": "index.d.ts",
+  "engines": {
+    "node": ">=14.0.0"
+  },
   "scripts": {
     "eslint": "eslint --ext .js --ignore-path .gitignore .",
     "prettier:check": "prettier --check . --config .prettierrc",
@@ -19,7 +22,8 @@
     "url": "git://github.com/tornadocash/tx-manager.git"
   },
   "files": [
-    "src/*"
+    "src/*",
+    "index.d.ts"
   ],
   "dependencies": {
     "async-mutex": "^0.2.4",

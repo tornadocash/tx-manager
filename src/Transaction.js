@@ -26,14 +26,13 @@ const sameTxErrors = [
   'Transaction with the same hash was already imported.',
   'already known',
   'AlreadyKnown',
-  'Known transaction'
+  'Known transaction',
 ]
 
 class Transaction {
   constructor(tx, manager) {
     this.manager = manager
     this.tx = { ...tx }
-    this.nonce = manager._nonce
     this._promise = PromiEvent()
     this._emitter = this._promise.eventEmitter
     this.executed = false
@@ -73,7 +72,7 @@ class Transaction {
     if (!tx.gasLimit) {
       const estimatedGasLimit = await this._estimateGas(tx)
       tx.gasLimit = min(
-        estimatedGasLimit.mul(this.manager.config.GAS_LIMIT_MULTIPLIER * 100).div(100),
+        estimatedGasLimit.mul(Math.floor(this.manager.config.GAS_LIMIT_MULTIPLIER * 100)).div(100),
         this.manager.config.BLOCK_GAS_LIMIT,
       )
     }
@@ -301,7 +300,8 @@ class Transaction {
   }
 
   _handleRpcError(e, method) {
-    if (e.error.error) {
+    console.log('_handleRpcError', e, method)
+    if (e.error?.error) {
       // Sometimes ethers wraps known errors, unwrap it in this case
       e = e.error
     }

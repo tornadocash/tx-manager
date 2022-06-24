@@ -5,6 +5,7 @@ import PromiEvent from 'web3-core-promievent'
 import { GasPriceOracle } from 'gas-price-oracle'
 import { Mutex } from 'async-mutex'
 import { Options as GasOracleOptions } from 'gas-price-oracle/lib/types'
+import { JsonRpcProvider } from '@ethersproject/providers'
 
 export interface TransactionData {
   to: string
@@ -45,6 +46,7 @@ export interface TxManagerParams {
   broadcastNodes?: string[]
   config?: TxManagerConfig
   gasPriceOracleConfig?: GasOracleOptions
+  provider: JsonRpcProvider
 }
 
 export class TxManager {
@@ -81,7 +83,9 @@ type TEventEmitter = typeof EventEmitter
 
 declare interface TxManagerEventEmmiter extends TEventEmitter {
   on<U extends TxManagerEvents>(event: U, listener: MessageEvents[U]): this
+
   on(event: 'confirmations', listener: MessageEvents['confirmations']): Promise<TransactionReceipt>
+
   emit<U extends TxManagerEvents>(event: U, ...args: Parameters<MessageEvents[U]>): boolean
 }
 
