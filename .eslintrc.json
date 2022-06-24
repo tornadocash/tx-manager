@@ -21,10 +21,7 @@
         "SwitchCase": 1
       }
     ],
-    "linebreak-style": [
-      "error",
-      "unix"
-    ],
+    "linebreak-style": ["error", "unix"],
     "quotes": [
       "error",
       "single",
@@ -32,19 +29,10 @@
         "avoidEscape": true
       }
     ],
-    "semi": [
-      "error",
-      "never"
-    ],
-    "object-curly-spacing": [
-      "error",
-      "always"
-    ],
+    "semi": ["error", "never"],
+    "object-curly-spacing": ["error", "always"],
     "require-await": "error",
-    "comma-dangle": [
-      "error",
-      "only-multiline"
-    ],
+    "comma-dangle": ["error", "only-multiline"],
     "space-before-function-paren": [
       "error",
       {
