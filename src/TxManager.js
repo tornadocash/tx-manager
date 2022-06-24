@@ -18,7 +18,6 @@ const defaultConfig = {
   ENABLE_EIP1559: true,
   DEFAULT_PRIORITY_FEE: 3,
   BASE_FEE_RESERVE_PERCENTAGE: 50,
-  PRIORITY_FEE_RESERVE_PERCENTAGE: 10,
 }
 
 class TxManager {

@@ -463,7 +463,7 @@ class Transaction {
 
     // Check network support for EIP-1559
     if (this.manager.config.ENABLE_EIP1559 && block && block.baseFeePerGas) {
-      const maxPriorityFeePerGas = await this._estimatePriorityFee()
+      const maxPriorityFeePerGas = parseUnits(this.manager.config.DEFAULT_PRIORITY_FEE.toString(), 'gwei')
 
       const maxFeePerGas = block.baseFeePerGas
         .mul(100 + this.manager.config.BASE_FEE_RESERVE_PERCENTAGE)
