@@ -301,7 +301,6 @@ class Transaction {
   }
 
   _handleRpcError(e, method) {
-    console.log('_handleRpcError', e, method)
     if (e.error?.error) {
       // Sometimes ethers wraps known errors, unwrap it in this case
       e = e.error
@@ -423,33 +422,6 @@ class Transaction {
    */
   _getLastNonce() {
     return this.manager._wallet.getTransactionCount('latest')
-  }
-
-  /**
-   * Fetches priority fee from the chain
-   *
-   * @returns {Promise<BigNumber>}
-   * @private
-   */
-  async _estimatePriorityFee() {
-    const defaultPriorityFee = parseUnits(this.manager.config.DEFAULT_PRIORITY_FEE.toString(), 'gwei')
-
-    try {
-      const estimatedPriorityFee = await this.manager._provider.send('eth_maxPriorityFeePerGas', [])
-
-      if (!estimatedPriorityFee || isNaN(estimatedPriorityFee)) {
-        return defaultPriorityFee
-      }
-
-      const bumpedPriorityFee = BigNumber.from(estimatedPriorityFee)
-        .mul(100 + this.manager.config.PRIORITY_FEE_RESERVE_PERCENTAGE)
-        .div(100)
-
-      return max(bumpedPriorityFee, defaultPriorityFee)
-    } catch (err) {
-      console.error('_estimatePriorityFee has error:', err.message)
-      return defaultPriorityFee
-    }
   }
 
   /**
