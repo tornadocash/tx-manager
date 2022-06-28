@@ -49,6 +49,13 @@ const defaultOptions = {
   },
   provider: undefined,
 }
+
+const getOptions = async () => {
+  const provider = new providers.JsonRpcProvider(RPC_URL)
+  const network = await provider.getNetwork()
+  const options = { ...defaultOptions }
+  return { network, provider, options }
+}
 const transactionTests = () => {
   it('should work legacy tx', async () => {
     const tx = this.manager.createTx(tx1)
@@ -178,39 +185,68 @@ const transactionTests = () => {
 
 describe('TxManager.default', () => {
   before(async () => {
-    const provider = new providers.JsonRpcProvider(RPC_URL)
-    const options = { ...defaultOptions }
-    const { name, chainId } = await provider.getNetwork()
+    const {
+      network: { name, chainId },
+      options,
+    } = await getOptions()
     options.chainId = chainId
-    console.log('\n\n', 'network', { name, chainId }, '\n\n')
+    console.log('default\n\n', 'network', { name, chainId }, '\n\n')
     this.manager = new TxManager(options)
   })
   describe('#transaction', transactionTests)
 })
 
-// describe('TxManager.EthersProvider', () => {
-//   before(async () => {
-//     const provider = new providers.JsonRpcProvider(RPC_URL)
-//     const options = { ...defaultOptions }
-//     const { name, chainId } = await provider.getNetwork()
-//     options.rpcUrl = undefined
-//     options.chainId = chainId
-//     options.provider = provider
-//     console.log('\n\n', 'network', { name, chainId }, '\n\n')
-//     this.manager = new TxManager(options)
-//   })
-//   describe('#transaction', transactionTests)
-// })
+describe('TxManager.EtherscanProvider', () => {
+  before(async () => {
+    const {
+      network: { name, chainId },
+      options,
+    } = await getOptions()
+    options.chainId = chainId
+    options.provider = new providers.EtherscanProvider(chainId, process.env.ETHERSCAN_API_KEY)
+    console.log('EtherscanProvider\n\n', 'network', { name, chainId }, '\n\n')
+    this.manager = new TxManager(options)
+  })
+  describe('#transaction', transactionTests)
+})
+
+describe('TxManager.AlchemyProvider', () => {
+  before(async () => {
+    const {
+      network: { name, chainId },
+      options,
+    } = await getOptions()
+    options.chainId = chainId
+    options.provider = new providers.AlchemyProvider(chainId, process.env.ALCHEMY_API_KEY)
+    console.log('AlchemyProvider\n\n', 'network', { name, chainId }, '\n\n')
+    this.manager = new TxManager(options)
+  })
+  describe('#transaction', transactionTests)
+})
+
+describe('TxManager.InfuraProvider', () => {
+  before(async () => {
+    const {
+      network: { name, chainId },
+      options,
+    } = await getOptions()
+    options.chainId = chainId
+    options.provider = new providers.InfuraProvider(chainId, process.env.INFURA_API_KEY)
+    console.log('InfuraProvider\n\n', 'network', { name, chainId }, '\n\n')
+    this.manager = new TxManager(options)
+  })
+  describe('#transaction', transactionTests)
+})
 
 describe('TxManager.Web3Provider', () => {
   before(async () => {
-    const provider = new providers.JsonRpcProvider(RPC_URL)
-    const options = { ...defaultOptions }
-    const { name, chainId } = await provider.getNetwork()
-    options.rpcUrl = undefined
+    const {
+      network: { name, chainId },
+      options,
+    } = await getOptions()
     options.chainId = chainId
     options.provider = new providers.Web3Provider(new Web3.providers.HttpProvider(RPC_URL))
-    console.log('\n\n', 'network', { name, chainId }, '\n\n')
+    console.log('Web3Provider\n\n', 'network', { name, chainId }, '\n\n')
     this.manager = new TxManager(options)
   })
   describe('#transaction', transactionTests)
