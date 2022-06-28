@@ -11,6 +11,7 @@ const nonceErrors = [
   /OldNonce/,
   'invalid transaction nonce',
 ]
+const nonceErrorCodes = ['SERVER_ERROR', 'NONCE_EXPIRED']
 
 const gasPriceErrors = [
   'Transaction gas price supplied is too low. There is another transaction with same nonce in the queue. Try increasing the gas price or incrementing the nonce.',
@@ -306,7 +307,7 @@ class Transaction {
       e = e.error
     }
 
-    if (e.error && e.code === 'SERVER_ERROR') {
+    if (e.error && nonceErrorCodes.includes(e.code)) {
       const message = e.error.message
 
       // nonce is too low, trying to increase and resubmit
