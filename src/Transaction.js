@@ -401,20 +401,6 @@ class Transaction {
   }
 
   /**
-   * Fetches gas price from the oracle
-   *
-   * @param {'instant'|'fast'|'normal'|'slow'} type
-   * @returns {Promise<string>} A hex string representing gas price in wei
-   * @private
-   */
-  async _getGasPrice(type) {
-    const gasPrices = await this.manager._gasPriceOracle.gasPrices()
-    const result = gasPrices[type].toString()
-    console.log(`${type} gas price is now ${result} gwei`)
-    return parseUnits(result, 'gwei').toHexString()
-  }
-
-  /**
    * Gets current nonce for the current account, ignoring any pending transactions
    *
    * @returns {Promise<number>}
@@ -432,29 +418,10 @@ class Transaction {
    */
   async _getGasParams() {
     const maxGasPrice = parseUnits(this.manager.config.MAX_GAS_PRICE.toString(), 'gwei')
-    const block = await this.manager._provider.getBlock('latest')
-
-    // Check network support for EIP-1559
-    if (this.manager.config.ENABLE_EIP1559 && block && block.baseFeePerGas) {
-      const maxPriorityFeePerGas = parseUnits(this.manager.config.DEFAULT_PRIORITY_FEE.toString(), 'gwei')
-
-      const maxFeePerGas = block.baseFeePerGas
-        .mul(100 + this.manager.config.BASE_FEE_RESERVE_PERCENTAGE)
-        .div(100)
-        .add(maxPriorityFeePerGas)
-
-      return {
-        maxFeePerGas: min(maxFeePerGas, maxGasPrice).toHexString(),
-        maxPriorityFeePerGas: min(maxPriorityFeePerGas, maxGasPrice).toHexString(),
-        type: 2,
-      }
-    } else {
-      const fastGasPrice = BigNumber.from(await this._getGasPrice('fast'))
-      return {
-        gasPrice: min(fastGasPrice, maxGasPrice).toHexString(),
-        type: 0,
-      }
-    }
+    const gasParams = await this.manager._gasPriceOracle.getTxGasParams({})
+    if (gasParams.gasPrice) gasParams.gasPrice = min(gasParams.gasPrice, maxGasPrice)
+    gasParams.type = gasParams?.maxFeePerGas ? 2 : 0
+    return gasParams
   }
 
   async _estimateGas(tx) {

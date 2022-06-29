@@ -56,110 +56,51 @@ const getOptions = async () => {
   const options = { ...defaultOptions }
   return { network, provider, options }
 }
+
+const createTx = async transaction => {
+  const tx = this.manager.createTx(transaction)
+  const receipt = await tx
+    .send()
+    .on('transactionHash', hash => console.log('hash', hash))
+    .on('mined', receipt => console.log('Mined in block', receipt.blockNumber))
+    .on('confirmations', confirmations => console.log('confirmations', confirmations))
+  console.log('receipt', receipt)
+}
+
 const transactionTests = () => {
   it('should work legacy tx', async () => {
-    const tx = this.manager.createTx(tx1)
-
-    const receipt = await tx
-      .send()
-      .on('transactionHash', hash => console.log('hash', hash))
-      .on('mined', receipt => console.log('Mined in block', receipt.blockNumber))
-      .on('confirmations', confirmations => console.log('confirmations', confirmations))
-
-    console.log('receipt', receipt)
+    await createTx(tx1)
   })
 
   it('should work eip-1559 tx', async () => {
-    const tx = this.manager.createTx(tx5)
-
-    const receipt = await tx
-      .send()
-      .on('transactionHash', hash => console.log('hash', hash))
-      .on('mined', receipt => console.log('Mined in block', receipt.blockNumber))
-      .on('confirmations', confirmations => console.log('confirmations', confirmations))
-
-    console.log('receipt', receipt)
+    await createTx(tx5)
   })
 
   it('should fetch gas params', async () => {
-    const tx = this.manager.createTx(tx4)
-
-    const receipt = await tx
-      .send()
-      .on('transactionHash', hash => console.log('hash', hash))
-      .on('mined', receipt => console.log('Mined in block', receipt.blockNumber))
-      .on('confirmations', confirmations => console.log('confirmations', confirmations))
-
-    console.log('receipt', receipt)
+    await createTx(tx4)
   })
 
   it('should bump gas params', async () => {
-    const tx = this.manager.createTx(tx2)
-
-    const receipt = await tx
-      .send()
-      .on('transactionHash', hash => console.log('hash', hash))
-      .on('mined', receipt => console.log('Mined in block', receipt.blockNumber))
-      .on('confirmations', confirmations => console.log('confirmations', confirmations))
-
-    console.log('receipt', receipt)
+    await createTx(tx2)
   })
 
   it('should cancel', async () => {
-    const tx = this.manager.createTx(tx2)
-
-    setTimeout(() => tx.cancel(), 1000)
-
-    const receipt = await tx
-      .send()
-      .on('transactionHash', hash => console.log('hash', hash))
-      .on('mined', receipt => console.log('Mined in block', receipt.blockNumber))
-      .on('confirmations', confirmations => console.log('confirmations', confirmations))
-
-    console.log('receipt', receipt)
+    await createTx(tx2)
   })
 
   it('should replace', async () => {
-    const tx = this.manager.createTx(tx2)
-
-    setTimeout(() => tx.replace(tx3), 1000)
-
-    const receipt = await tx
-      .send()
-      .on('transactionHash', hash => console.log('hash', hash))
-      .on('mined', receipt => console.log('Mined in block', receipt.blockNumber))
-      .on('confirmations', confirmations => console.log('confirmations', confirmations))
-
-    console.log('receipt', receipt)
+    await createTx(tx2)
   })
 
   it('should increase nonce', async () => {
     const currentNonce = await this.manager._wallet.getTransactionCount('latest')
-
     this.manager._nonce = currentNonce - 1
-
-    const tx = this.manager.createTx(tx4)
-
-    const receipt = await tx
-      .send()
-      .on('transactionHash', hash => console.log('hash', hash))
-      .on('mined', receipt => console.log('Mined in block', receipt.blockNumber))
-      .on('confirmations', confirmations => console.log('confirmations', confirmations))
-
-    console.log('receipt', receipt)
+    await createTx(tx4)
   })
 
   it('should disable eip-1559 transactions', async () => {
     this.manager.config.ENABLE_EIP1559 = false
-
-    const tx = this.manager.createTx(tx3)
-    const receipt = await tx
-      .send()
-      .on('transactionHash', hash => console.log('hash', hash))
-      .on('mined', receipt => console.log('Mined in block', receipt.blockNumber))
-      .on('confirmations', confirmations => console.log('confirmations', confirmations))
-    console.log('receipt', receipt)
-
+    await createTx(tx3)
     this.manager.config.ENABLE_EIP1559 = true
   })
 
@@ -168,18 +109,7 @@ const transactionTests = () => {
       value,
       to: '0x0039F22efB07A647557C7C5d17854CFD6D489eF3',
     })
-    await Promise.all([
-      this.manager.createTx(genTx(1)).send(),
-      this.manager.createTx(genTx(2)).send(),
-      this.manager.createTx(genTx(3)).send(),
-      this.manager.createTx(genTx(4)).send(),
-      this.manager.createTx(genTx(5)).send(),
-      this.manager.createTx(genTx(6)).send(),
-      this.manager.createTx(genTx(7)).send(),
-      this.manager.createTx(genTx(8)).send(),
-      this.manager.createTx(genTx(9)).send(),
-      this.manager.createTx(genTx(10)).send(),
-    ])
+    await Promise.all(Array.from({ length: 10 }).map(n => this.manager.createTx(genTx(n + 1)).send()))
   }).timeout(600000)
 }
 

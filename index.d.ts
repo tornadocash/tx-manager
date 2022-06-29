@@ -2,9 +2,8 @@ import { BigNumberish, providers, Wallet } from 'ethers'
 import { EventEmitter } from 'eventemitter3'
 import { TransactionReceipt } from '@ethersproject/abstract-provider'
 import PromiEvent from 'web3-core-promievent'
-import { GasPriceOracle } from 'gas-price-oracle'
+import { GasOracleOptions, GasPriceOracle } from 'gas-price-oracle'
 import { Mutex } from 'async-mutex'
-import { Options as GasOracleOptions } from 'gas-price-oracle/lib/types'
 import { JsonRpcProvider } from '@ethersproject/providers'
 
 export interface TransactionData {
