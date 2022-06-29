@@ -4,7 +4,7 @@ import { TransactionReceipt } from '@ethersproject/abstract-provider'
 import PromiEvent from 'web3-core-promievent'
 import { GasOracleOptions, GasPriceOracle } from 'gas-price-oracle'
 import { Mutex } from 'async-mutex'
-import { JsonRpcProvider } from '@ethersproject/providers'
+import { Provider } from '@ethersproject/providers'
 
 export interface TransactionData {
   to: string
@@ -45,7 +45,7 @@ export interface TxManagerParams {
   broadcastNodes?: string[]
   config?: TxManagerConfig
   gasPriceOracleConfig?: GasOracleOptions
-  provider: JsonRpcProvider
+  provider?: typeof Provider
 }
 
 export class TxManager {
