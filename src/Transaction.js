@@ -418,8 +418,9 @@ class Transaction {
    */
   async _getGasParams() {
     const maxGasPrice = parseUnits(this.manager.config.MAX_GAS_PRICE.toString(), 'gwei')
-    const gasParams = await this.manager._gasPriceOracle.getTxGasParams({})
+    const gasParams = await this.manager._gasPriceOracle.getTxGasParams()
     if (gasParams.gasPrice) gasParams.gasPrice = min(gasParams.gasPrice, maxGasPrice)
+    else gasParams.maxFeePerGas = min(gasParams?.maxFeePerGas, maxGasPrice)
     gasParams.type = gasParams?.maxFeePerGas ? 2 : 0
     return gasParams
   }
