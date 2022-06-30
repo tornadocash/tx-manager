@@ -45,7 +45,7 @@ export interface TxManagerParams {
   broadcastNodes?: string[]
   config?: TxManagerConfig
   gasPriceOracleConfig?: GasOracleOptions
-  provider?: typeof Provider
+  provider?: Provider
 }
 
 export class TxManager {
