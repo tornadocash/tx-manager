@@ -28,7 +28,7 @@
   "dependencies": {
     "async-mutex": "^0.2.4",
     "ethers": "^5.4.6",
-    "gas-price-oracle": "git+https://github.com/peppersec/gas-price-oracle.git#de97ca2d154480aebbe9130778a69727f3a0f00b",
+    "gas-price-oracle": "git+https://github.com/peppersec/gas-price-oracle.git#ead2fc80aae67caf20ce6d867018853e601a406d",
     "web3-core-promievent": "^1.3.0"
   },
   "devDependencies": {
