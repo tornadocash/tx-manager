@@ -72,21 +72,27 @@ class Transaction {
 
     if (!tx.gasLimit) {
       const estimatedGasLimit = await this._estimateGas(tx)
-      tx.gasLimit = min(
-        estimatedGasLimit.mul(Math.floor(this.manager.config.GAS_LIMIT_MULTIPLIER * 100)).div(100),
-        this.manager.config.BLOCK_GAS_LIMIT,
-      )
-    }
+      const gasLimit = estimatedGasLimit
+        .mul(Math.floor(this.manager.config.GAS_LIMIT_MULTIPLIER * 100))
+        .div(100)
 
+      tx.gasLimit = this.manager.config.BLOCK_GAS_LIMIT
+        ? min(gasLimit, this.manager.config.BLOCK_GAS_LIMIT)
+        : gasLimit
+    }
+    // TODO: check if the new tx params is valid
     tx.chainId = this.tx.chainId
     tx.nonce = this.tx.nonce // can be different from `this.manager._nonce`
 
     // start no less than current tx gas params
     if (this.tx.gasPrice) {
       tx.gasPrice = max(this.tx.gasPrice, tx.gasPrice || 0)
-    } else {
+    } else if (this.tx.maxFeePerGas) {
       tx.maxFeePerGas = max(this.tx.maxFeePerGas, tx.maxFeePerGas || 0)
       tx.maxPriorityFeePerGas = max(this.tx.maxPriorityFeePerGas, tx.maxPriorityFeePerGas || 0)
+    } else {
+      const gasParams = await this._getGasParams()
+      tx = { ...tx, ...gasParams }
     }
 
     this.tx = { ...tx }
@@ -418,9 +424,15 @@ class Transaction {
    */
   async _getGasParams() {
     const maxGasPrice = parseUnits(this.manager.config.MAX_GAS_PRICE.toString(), 'gwei')
-    const gasParams = await this.manager._gasPriceOracle.getTxGasParams()
-    if (gasParams.gasPrice) gasParams.gasPrice = min(gasParams.gasPrice, maxGasPrice)
-    else gasParams.maxFeePerGas = min(gasParams?.maxFeePerGas, maxGasPrice)
+    const gasParams = await this.manager._gasPriceOracle.getTxGasParams({
+      isLegacy: !this.manager.config.ENABLE_EIP1559,
+    })
+    if (gasParams.gasPrice) {
+      gasParams.gasPrice = min(gasParams.gasPrice, maxGasPrice)
+    } else {
+      gasParams.maxFeePerGas = min(gasParams?.maxFeePerGas, maxGasPrice)
+      gasParams.maxPriorityFeePerGas = min(gasParams?.maxPriorityFeePerGas, maxGasPrice)
+    }
     gasParams.type = gasParams?.maxFeePerGas ? 2 : 0
     return gasParams
   }

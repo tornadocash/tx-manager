@@ -32,11 +32,9 @@ export interface TxManagerConfig {
   ESTIMATE_GAS?: boolean
   THROW_ON_REVERT?: boolean
   BLOCK_GAS_LIMIT?: number
-  PRIORITY_FEE_GWEI?: number
   BASE_FEE_RESERVE_PERCENTAGE?: number
   ENABLE_EIP1559?: boolean
   DEFAULT_PRIORITY_FEE?: number
-  PRIORITY_FEE_RESERVE_PERCENTAGE?: number
 }
 
 export interface TxManagerParams {
@@ -80,7 +78,7 @@ export type MessageEvents = {
 }
 type TEventEmitter = typeof EventEmitter
 
-declare interface TxManagerEventEmmiter extends TEventEmitter {
+declare interface TxManagerEventEmitter extends TEventEmitter {
   on<U extends TxManagerEvents>(event: U, listener: MessageEvents[U]): this
 
   on(event: 'confirmations', listener: MessageEvents['confirmations']): Promise<TransactionReceipt>
@@ -92,7 +90,7 @@ export class Transaction {
   manager: TxManager
   tx: TransactionData
   private _promise: typeof PromiEvent
-  private _emitter: TxManagerEventEmmiter
+  private _emitter: TxManagerEventEmitter
   executed: boolean
   retries: number
   currentTxHash: string
@@ -100,7 +98,7 @@ export class Transaction {
 
   constructor(tx: TransactionData, manager: TxManager)
 
-  send(): TxManagerEventEmmiter
+  send(): TxManagerEventEmitter
 
   replace(tx: TransactionData): Promise<void>
 
@@ -119,8 +117,6 @@ export class Transaction {
   private _increaseGasPrice(): boolean
 
   private _hasError(message: string, errors: (string | RegExp)[]): boolean
-
-  private _getGasPrice(type: 'instant' | 'fast' | 'normal' | 'slow'): Promise<string>
 
   private _getLastNonce(): Promise<number>
 

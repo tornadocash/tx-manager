@@ -57,54 +57,68 @@ const getOptions = async () => {
   return { network, provider, options }
 }
 
-const createTx = async transaction => {
-  const tx = this.manager.createTx(transaction)
+const sendTx = async tx => {
   const receipt = await tx
     .send()
     .on('transactionHash', hash => console.log('hash', hash))
     .on('mined', receipt => console.log('Mined in block', receipt.blockNumber))
     .on('confirmations', confirmations => console.log('confirmations', confirmations))
   console.log('receipt', receipt)
+  return receipt
 }
 
 const transactionTests = () => {
   it('should work legacy tx', async () => {
-    await createTx(tx1)
+    const tx = this.manager.createTx(tx1)
+    const receipt = await sendTx(tx)
+    receipt.type.should.equal(0)
   })
 
   it('should work eip-1559 tx', async () => {
-    await createTx(tx5)
+    const tx = this.manager.createTx(tx5)
+    const receipt = await sendTx(tx)
+    receipt.type.should.equal(2)
   })
 
   it('should fetch gas params', async () => {
-    await createTx(tx4)
+    const tx = this.manager.createTx(tx4)
+    await sendTx(tx)
   })
 
   it('should bump gas params', async () => {
-    await createTx(tx2)
+    const tx = this.manager.createTx(tx2)
+    await sendTx(tx)
   })
 
   it('should cancel', async () => {
-    await createTx(tx2)
+    const tx = this.manager.createTx(tx3)
+    setTimeout(() => tx.cancel(), 1000)
+    await sendTx(tx)
   })
 
   it('should replace', async () => {
-    await createTx(tx2)
+    const tx = this.manager.createTx(tx3)
+    setTimeout(() => tx.replace(tx4), 1000)
+    const receipt = await sendTx(tx)
+    receipt.to.should.equal(tx4.to)
   })
 
   it('should increase nonce', async () => {
     const currentNonce = await this.manager._wallet.getTransactionCount('latest')
     this.manager._nonce = currentNonce - 1
-    await createTx(tx4)
+    const tx = this.manager.createTx(tx4)
+    await sendTx(tx)
   })
 
   it('should disable eip-1559 transactions', async () => {
     this.manager.config.ENABLE_EIP1559 = false
-    await createTx(tx3)
+    const tx = this.manager.createTx(tx3)
+    const receipt = await sendTx(tx)
+    receipt.type.should.equal(0)
     this.manager.config.ENABLE_EIP1559 = true
   })
 
-  it('should send multiple txs', async () => {
+  it.skip('should send multiple txs', async () => {
     const genTx = value => ({
       value,
       to: '0x0039F22efB07A647557C7C5d17854CFD6D489eF3',
