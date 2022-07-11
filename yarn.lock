@@ -1912,9 +1912,10 @@ functions-have-names@^1.2.2:
   resolved "https://registry.yarnpkg.com/functions-have-names/-/functions-have-names-1.2.3.tgz#0404fe4ee2ba2f607f0e0ec3c80bae994133b834"
   integrity sha512-xckBUXyTIqT97tq2x2AMb+g163b5JFysYk0x4qxNFwbfQkmNZoiRHb6sPzI9/QV33WeuvVYBUIiD4NzNIyqaRQ==
 
-"gas-price-oracle@git+https://github.com/peppersec/gas-price-oracle.git#ead2fc80aae67caf20ce6d867018853e601a406d":
+gas-price-oracle@^0.5.0:
   version "0.5.0"
-  resolved "git+https://github.com/peppersec/gas-price-oracle.git#ead2fc80aae67caf20ce6d867018853e601a406d"
+  resolved "https://registry.yarnpkg.com/gas-price-oracle/-/gas-price-oracle-0.5.0.tgz#b29f83c97bb4b091a08da7c10e2d1e5888bbade4"
+  integrity sha512-um0cmd9qxGkDHirV1HcrjQ4vedVxK7u+uMeJIjo2yUMYe6T46ihbMnRncF5tfP9deU5hPHJ8FvVRZY1Y/CKkLQ==
   dependencies:
     axios "^0.21.2"
     bignumber.js "^9.0.0"
