@@ -37,6 +37,7 @@ class Transaction {
     this._promise = PromiEvent()
     this._emitter = this._promise.eventEmitter
     this.executed = false
+    this.replaced = false
     this.retries = 0
     this.currentTxHash = null
     // store all submitted hashes to catch cases when an old tx is mined
@@ -63,6 +64,10 @@ class Transaction {
    */
   async replace(tx) {
     // todo throw error if the current transaction is mined already
+    // if (this.currentTxHash) {
+    //   throw new Error('Previous transaction was mined')
+    // }
+
     console.log('Replacing current transaction')
     if (!this.executed) {
       // Tx was not executed yet, just replace it
@@ -80,7 +85,7 @@ class Transaction {
         ? min(gasLimit, this.manager.config.BLOCK_GAS_LIMIT)
         : gasLimit
     }
-    // TODO: check if the new tx params is valid
+
     tx.chainId = this.tx.chainId
     tx.nonce = this.tx.nonce // can be different from `this.manager._nonce`
 
@@ -90,13 +95,16 @@ class Transaction {
     } else if (this.tx.maxFeePerGas) {
       tx.maxFeePerGas = max(this.tx.maxFeePerGas, tx.maxFeePerGas || 0)
       tx.maxPriorityFeePerGas = max(this.tx.maxPriorityFeePerGas, tx.maxPriorityFeePerGas || 0)
-    } else {
-      const gasParams = await this._getGasParams()
-      tx = { ...tx, ...gasParams }
     }
 
     this.tx = { ...tx }
-    this._increaseGasPrice()
+    await this._prepare()
+
+    if (tx.gasPrice || tx.maxFeePerGas) {
+      this._increaseGasPrice()
+    }
+
+    this.replaced = true
     await this._send()
   }
 
@@ -148,7 +156,10 @@ class Transaction {
       const net = await this.manager._provider.getNetwork()
       this.manager._chainId = net.chainId
     }
-    this.tx.chainId = this.manager._chainId
+
+    if (!this.tx.chainId) {
+      this.tx.chainId = this.manager._chainId
+    }
 
     if (!this.tx.gasLimit || this.manager.config.ESTIMATE_GAS) {
       const gas = await this._estimateGas(this.tx)
@@ -161,15 +172,15 @@ class Transaction {
     if (!this.manager._nonce) {
       this.manager._nonce = await this._getLastNonce()
     }
-    this.tx.nonce = this.manager._nonce
 
-    if (this.tx.gasPrice || (this.tx.maxFeePerGas && this.tx.maxPriorityFeePerGas)) {
-      return
+    if (!this.tx.nonce) {
+      this.tx.nonce = this.manager._nonce
     }
 
-    const gasParams = await this._getGasParams()
-
-    this.tx = Object.assign(this.tx, gasParams)
+    if (!this.tx.gasPrice && !this.tx.maxFeePerGas && !this.tx.maxPriorityFeePerGas) {
+      const gasParams = await this._getGasParams()
+      this.tx = Object.assign(this.tx, gasParams)
+    }
   }
 
   /**
@@ -317,6 +328,10 @@ class Transaction {
 
       // nonce is too low, trying to increase and resubmit
       if (this._hasError(message, nonceErrors)) {
+        if (this.replaced) {
+          console.log('Transaction with the same nonce was mined')
+          return // do nothing
+        }
         console.log(`Nonce ${this.tx.nonce} is too low, increasing and retrying`)
         if (this.retries <= this.manager.config.MAX_RETRIES) {
           this.tx.nonce++

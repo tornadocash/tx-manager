@@ -91,16 +91,23 @@ const transactionTests = () => {
   })
 
   it('should cancel', async () => {
+    const currentNonce = await this.manager._wallet.getTransactionCount('latest')
     const tx = this.manager.createTx(tx3)
     setTimeout(() => tx.cancel(), 1000)
-    await sendTx(tx)
+    const receipt = await sendTx(tx)
+    const transaction = await this.manager._provider.getTransaction(receipt.transactionHash)
+    transaction.value.toNumber().should.equal(0)
+    transaction.nonce.should.equal(currentNonce)
   })
 
   it('should replace', async () => {
+    const currentNonce = await this.manager._wallet.getTransactionCount('latest')
     const tx = this.manager.createTx(tx3)
     setTimeout(() => tx.replace(tx4), 1000)
     const receipt = await sendTx(tx)
+    const transaction = await this.manager._provider.getTransaction(receipt.transactionHash)
     receipt.to.should.equal(tx4.to)
+    transaction.nonce.should.equal(currentNonce)
   })
 
   it('should increase nonce', async () => {
@@ -118,7 +125,7 @@ const transactionTests = () => {
     this.manager.config.ENABLE_EIP1559 = true
   })
 
-  it.skip('should send multiple txs', async () => {
+  it('should send multiple txs', async () => {
     const genTx = value => ({
       value,
       to: '0x0039F22efB07A647557C7C5d17854CFD6D489eF3',
