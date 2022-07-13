@@ -11,12 +11,11 @@ const nonceErrors = [
   /OldNonce/,
   'invalid transaction nonce',
 ]
-const nonceErrorCodes = ['SERVER_ERROR', 'NONCE_EXPIRED']
 
 const gasPriceErrors = [
   'Transaction gas price supplied is too low. There is another transaction with same nonce in the queue. Try increasing the gas price or incrementing the nonce.',
-  /replacement transaction underpriced/i,
   /transaction underpriced/,
+  /fee too low/i,
   /Transaction gas price \d+wei is too low. There is another transaction with same nonce in the queue with gas price: \d+wei. Try increasing the gas price or incrementing the nonce./,
   /FeeTooLow/,
   /max fee per gas less than block base fee/,
@@ -323,42 +322,41 @@ class Transaction {
       e = e.error
     }
 
-    if (e.error && nonceErrorCodes.includes(e.code)) {
-      const message = e.error.message
+    // web3 provider not wrapping message
+    const message = e.error?.message || e.message
 
-      // nonce is too low, trying to increase and resubmit
-      if (this._hasError(message, nonceErrors)) {
-        if (this.replaced) {
-          console.log('Transaction with the same nonce was mined')
-          return // do nothing
-        }
-        console.log(`Nonce ${this.tx.nonce} is too low, increasing and retrying`)
-        if (this.retries <= this.manager.config.MAX_RETRIES) {
-          this.tx.nonce++
-          this.retries++
-          return this[method]()
-        }
-      }
-
-      // there is already a pending tx with higher gas price, trying to bump and resubmit
-      if (this._hasError(message, gasPriceErrors)) {
-        console.log(
-          `Gas price ${formatUnits(
-            this.tx.gasPrice || this.tx.maxFeePerGas,
-            'gwei',
-          )} gwei is too low, increasing and retrying`,
-        )
-        if (this._increaseGasPrice()) {
-          return this[method]()
-        } else {
-          throw new Error('Already at max gas price, but still not enough to submit the transaction')
-        }
-      }
-
-      if (this._hasError(message, sameTxErrors)) {
-        console.log('Same transaction is already in mempool, skipping submit')
+    // nonce is too low, trying to increase and resubmit
+    if (this._hasError(message, nonceErrors)) {
+      if (this.replaced) {
+        console.log('Transaction with the same nonce was mined')
         return // do nothing
       }
+      console.log(`Nonce ${this.tx.nonce} is too low, increasing and retrying`)
+      if (this.retries <= this.manager.config.MAX_RETRIES) {
+        this.tx.nonce++
+        this.retries++
+        return this[method]()
+      }
+    }
+
+    // there is already a pending tx with higher gas price, trying to bump and resubmit
+    if (this._hasError(message, gasPriceErrors)) {
+      console.log(
+        `Gas price ${formatUnits(
+          this.tx.gasPrice || this.tx.maxFeePerGas,
+          'gwei',
+        )} gwei is too low, increasing and retrying`,
+      )
+      if (this._increaseGasPrice()) {
+        return this[method]()
+      } else {
+        throw new Error('Already at max gas price, but still not enough to submit the transaction')
+      }
+    }
+
+    if (this._hasError(message, sameTxErrors)) {
+      console.log('Same transaction is already in mempool, skipping submit')
+      return // do nothing
     }
 
     throw new Error(`Send error: ${e}`)
