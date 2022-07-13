@@ -177,7 +177,7 @@ class Transaction {
       this.tx.nonce = this.manager._nonce
     }
 
-    if (!this.tx.gasPrice && !this.tx.maxFeePerGas && !this.tx.maxPriorityFeePerGas) {
+    if (!this.tx.gasPrice && !this.tx.maxFeePerGas) {
       const gasParams = await this._getGasParams()
       this.tx = Object.assign(this.tx, gasParams)
     }
