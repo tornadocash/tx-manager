@@ -14,8 +14,8 @@ const nonceErrors = [
 
 const gasPriceErrors = [
   'Transaction gas price supplied is too low. There is another transaction with same nonce in the queue. Try increasing the gas price or incrementing the nonce.',
-  /replacement transaction underpriced/i,
   /transaction underpriced/,
+  /fee too low/i,
   /Transaction gas price \d+wei is too low. There is another transaction with same nonce in the queue with gas price: \d+wei. Try increasing the gas price or incrementing the nonce./,
   /FeeTooLow/,
   /max fee per gas less than block base fee/,
@@ -26,17 +26,17 @@ const sameTxErrors = [
   'Transaction with the same hash was already imported.',
   'already known',
   'AlreadyKnown',
-  'Known transaction'
+  'Known transaction',
 ]
 
 class Transaction {
   constructor(tx, manager) {
-    Object.assign(this, manager)
     this.manager = manager
     this.tx = { ...tx }
     this._promise = PromiEvent()
     this._emitter = this._promise.eventEmitter
     this.executed = false
+    this.replaced = false
     this.retries = 0
     this.currentTxHash = null
     // store all submitted hashes to catch cases when an old tx is mined
@@ -63,6 +63,10 @@ class Transaction {
    */
   async replace(tx) {
     // todo throw error if the current transaction is mined already
+    // if (this.currentTxHash) {
+    //   throw new Error('Previous transaction was mined')
+    // }
+
     console.log('Replacing current transaction')
     if (!this.executed) {
       // Tx was not executed yet, just replace it
@@ -71,9 +75,14 @@ class Transaction {
     }
 
     if (!tx.gasLimit) {
-      tx.gasLimit = await this._estimateGas(tx)
-      tx.gasLimit = Math.floor(tx.gasLimit * this.config.GAS_LIMIT_MULTIPLIER)
-      tx.gasLimit = Math.min(tx.gasLimit, this.config.BLOCK_GAS_LIMIT)
+      const estimatedGasLimit = await this._estimateGas(tx)
+      const gasLimit = estimatedGasLimit
+        .mul(Math.floor(this.manager.config.GAS_LIMIT_MULTIPLIER * 100))
+        .div(100)
+
+      tx.gasLimit = this.manager.config.BLOCK_GAS_LIMIT
+        ? min(gasLimit, this.manager.config.BLOCK_GAS_LIMIT)
+        : gasLimit
     }
 
     tx.chainId = this.tx.chainId
@@ -81,14 +90,20 @@ class Transaction {
 
     // start no less than current tx gas params
     if (this.tx.gasPrice) {
-      tx.gasPrice = Math.max(this.tx.gasPrice, tx.gasPrice || 0)
-    } else {
-      tx.maxFeePerGas = Math.max(this.tx.maxFeePerGas, tx.maxFeePerGas || 0)
-      tx.maxPriorityFeePerGas = Math.max(this.tx.maxPriorityFeePerGas, tx.maxPriorityFeePerGas || 0)
+      tx.gasPrice = max(this.tx.gasPrice, tx.gasPrice || 0)
+    } else if (this.tx.maxFeePerGas) {
+      tx.maxFeePerGas = max(this.tx.maxFeePerGas, tx.maxFeePerGas || 0)
+      tx.maxPriorityFeePerGas = max(this.tx.maxPriorityFeePerGas, tx.maxPriorityFeePerGas || 0)
     }
 
     this.tx = { ...tx }
-    this._increaseGasPrice()
+    await this._prepare()
+
+    if (tx.gasPrice || tx.maxFeePerGas) {
+      this._increaseGasPrice()
+    }
+
+    this.replaced = true
     await this._send()
   }
 
@@ -98,8 +113,8 @@ class Transaction {
   cancel() {
     console.log('Canceling the transaction')
     return this.replace({
-      from: this.address,
-      to: this.address,
+      from: this.manager.address,
+      to: this.manager.address,
       value: 0,
     })
   }
@@ -131,37 +146,40 @@ class Transaction {
    * @private
    */
   async _prepare() {
-    if (!this.config.BLOCK_GAS_LIMIT) {
-      const lastBlock = await this._provider.getBlock('latest')
-      this.config.BLOCK_GAS_LIMIT = Math.floor(lastBlock.gasLimit.toNumber() * 0.95)
+    if (!this.manager.config.BLOCK_GAS_LIMIT) {
+      const lastBlock = await this.manager._provider.getBlock('latest')
+      this.manager.config.BLOCK_GAS_LIMIT = Math.floor(lastBlock.gasLimit.toNumber() * 0.95)
     }
 
     if (!this.manager._chainId) {
-      const net = await this._provider.getNetwork()
+      const net = await this.manager._provider.getNetwork()
       this.manager._chainId = net.chainId
     }
-    this.tx.chainId = this.manager._chainId
 
-    if (!this.tx.gasLimit || this.config.ESTIMATE_GAS) {
+    if (!this.tx.chainId) {
+      this.tx.chainId = this.manager._chainId
+    }
+
+    if (!this.tx.gasLimit || this.manager.config.ESTIMATE_GAS) {
       const gas = await this._estimateGas(this.tx)
       if (!this.tx.gasLimit) {
-        const gasLimit = Math.floor(gas * this.config.GAS_LIMIT_MULTIPLIER)
-        this.tx.gasLimit = Math.min(gasLimit, this.config.BLOCK_GAS_LIMIT)
+        const gasLimit = Math.floor(gas * this.manager.config.GAS_LIMIT_MULTIPLIER)
+        this.tx.gasLimit = Math.min(gasLimit, this.manager.config.BLOCK_GAS_LIMIT)
       }
     }
 
     if (!this.manager._nonce) {
       this.manager._nonce = await this._getLastNonce()
     }
-    this.tx.nonce = this.manager._nonce
 
-    if (this.tx.gasPrice || (this.tx.maxFeePerGas && this.tx.maxPriorityFeePerGas)) {
-      return
+    if (!this.tx.nonce) {
+      this.tx.nonce = this.manager._nonce
     }
 
-    const gasParams = await this._getGasParams()
-
-    this.tx = Object.assign(this.tx, gasParams)
+    if (!this.tx.gasPrice && !this.tx.maxFeePerGas) {
+      const gasParams = await this._getGasParams()
+      this.tx = Object.assign(this.tx, gasParams)
+    }
   }
 
   /**
@@ -172,7 +190,7 @@ class Transaction {
    */
   async _send() {
     // todo throw is we attempt to send a tx that attempts to replace already mined tx
-    const signedTx = await this._wallet.signTransaction(this.tx)
+    const signedTx = await this.manager._wallet.signTransaction(this.tx)
     this.submitTimestamp = Date.now()
     const txHash = ethers.utils.keccak256(signedTx)
     this.hashes.push(txHash)
@@ -198,7 +216,7 @@ class Transaction {
     while (true) {
       // We are already waiting on certain tx hash
       if (this.currentTxHash) {
-        const receipt = await this._provider.getTransactionReceipt(this.currentTxHash)
+        const receipt = await this.manager._provider.getTransactionReceipt(this.currentTxHash)
 
         if (!receipt) {
           // We were waiting for some tx but it disappeared
@@ -207,20 +225,20 @@ class Transaction {
           continue
         }
 
-        const currentBlock = await this._provider.getBlockNumber()
+        const currentBlock = await this.manager._provider.getBlockNumber()
         const confirmations = Math.max(0, currentBlock - receipt.blockNumber)
         // todo don't emit repeating confirmation count
         this._emitter.emit('confirmations', confirmations)
-        if (confirmations >= this.config.CONFIRMATIONS) {
+        if (confirmations >= this.manager.config.CONFIRMATIONS) {
           // Tx is mined and has enough confirmations
-          if (this.config.THROW_ON_REVERT && Number(receipt.status) === 0) {
+          if (this.manager.config.THROW_ON_REVERT && Number(receipt.status) === 0) {
             throw new Error('EVM execution failed, so the transaction was reverted.')
           }
           return receipt
         }
 
         // Tx is mined but doesn't have enough confirmations yet, keep waiting
-        await sleep(this.config.POLL_INTERVAL)
+        await sleep(this.manager.config.POLL_INTERVAL)
         continue
       }
 
@@ -229,7 +247,7 @@ class Transaction {
         // todo optionally run estimateGas on each iteration and cancel the transaction if it fails
 
         // We were waiting too long, increase gas price and resubmit
-        if (Date.now() - this.submitTimestamp >= this.config.GAS_BUMP_INTERVAL) {
+        if (Date.now() - this.submitTimestamp >= this.manager.config.GAS_BUMP_INTERVAL) {
           if (this._increaseGasPrice()) {
             console.log('Resubmitting with higher gas params')
             await this._send()
@@ -237,7 +255,7 @@ class Transaction {
           }
         }
         // Tx is still pending, keep waiting
-        await sleep(this.config.POLL_INTERVAL)
+        await sleep(this.manager.config.POLL_INTERVAL)
         continue
       }
 
@@ -275,7 +293,7 @@ class Transaction {
 
   async _getReceipts() {
     for (const hash of this.hashes.reverse()) {
-      const receipt = await this._provider.getTransactionReceipt(hash)
+      const receipt = await this.manager._provider.getTransactionReceipt(hash)
       if (receipt) {
         return receipt
       }
@@ -286,11 +304,11 @@ class Transaction {
   /**
    * Broadcasts tx to multiple nodes, waits for tx hash only on main node
    */
-  _broadcast(rawTx) {
-    const main = this._provider.sendTransaction(rawTx)
-    for (const node of this._broadcastNodes) {
+  async _broadcast(rawTx) {
+    const main = await this.manager._provider.sendTransaction(rawTx)
+    for (const node of this.manager._broadcastNodes) {
       try {
-        new ethers.providers.JsonRpcProvider(node).sendTransaction(rawTx)
+        await new ethers.providers.JsonRpcProvider(node).sendTransaction(rawTx)
       } catch (e) {
         console.log(`Failed to send transaction to node ${node}: ${e}`)
       }
@@ -304,38 +322,41 @@ class Transaction {
       e = e.error
     }
 
-    if (e.error && e.code === 'SERVER_ERROR') {
-      const message = e.error.message
+    // web3 provider not wrapping message
+    const message = e.error?.message || e.message
 
-      // nonce is too low, trying to increase and resubmit
-      if (this._hasError(message, nonceErrors)) {
-        console.log(`Nonce ${this.tx.nonce} is too low, increasing and retrying`)
-        if (this.retries <= this.config.MAX_RETRIES) {
-          this.tx.nonce++
-          this.retries++
-          return this[method]()
-        }
-      }
-
-      // there is already a pending tx with higher gas price, trying to bump and resubmit
-      if (this._hasError(message, gasPriceErrors)) {
-        console.log(
-          `Gas price ${formatUnits(
-            this.tx.gasPrice || this.tx.maxFeePerGas,
-            'gwei',
-          )} gwei is too low, increasing and retrying`,
-        )
-        if (this._increaseGasPrice()) {
-          return this[method]()
-        } else {
-          throw new Error('Already at max gas price, but still not enough to submit the transaction')
-        }
-      }
-
-      if (this._hasError(message, sameTxErrors)) {
-        console.log('Same transaction is already in mempool, skipping submit')
+    // nonce is too low, trying to increase and resubmit
+    if (this._hasError(message, nonceErrors)) {
+      if (this.replaced) {
+        console.log('Transaction with the same nonce was mined')
         return // do nothing
       }
+      console.log(`Nonce ${this.tx.nonce} is too low, increasing and retrying`)
+      if (this.retries <= this.manager.config.MAX_RETRIES) {
+        this.tx.nonce++
+        this.retries++
+        return this[method]()
+      }
+    }
+
+    // there is already a pending tx with higher gas price, trying to bump and resubmit
+    if (this._hasError(message, gasPriceErrors)) {
+      console.log(
+        `Gas price ${formatUnits(
+          this.tx.gasPrice || this.tx.maxFeePerGas,
+          'gwei',
+        )} gwei is too low, increasing and retrying`,
+      )
+      if (this._increaseGasPrice()) {
+        return this[method]()
+      } else {
+        throw new Error('Already at max gas price, but still not enough to submit the transaction')
+      }
+    }
+
+    if (this._hasError(message, sameTxErrors)) {
+      console.log('Same transaction is already in mempool, skipping submit')
+      return // do nothing
     }
 
     throw new Error(`Send error: ${e}`)
@@ -354,8 +375,8 @@ class Transaction {
   }
 
   _increaseGasPrice() {
-    const maxGasPrice = parseUnits(this.config.MAX_GAS_PRICE.toString(), 'gwei')
-    const minGweiBump = parseUnits(this.config.MIN_GWEI_BUMP.toString(), 'gwei')
+    const maxGasPrice = parseUnits(this.manager.config.MAX_GAS_PRICE.toString(), 'gwei')
+    const minGweiBump = parseUnits(this.manager.config.MIN_GWEI_BUMP.toString(), 'gwei')
 
     if (this.tx.gasPrice) {
       const oldGasPrice = BigNumber.from(this.tx.gasPrice)
@@ -365,7 +386,7 @@ class Transaction {
       }
 
       const newGasPrice = max(
-        oldGasPrice.mul(100 + this.config.GAS_BUMP_PERCENTAGE).div(100),
+        oldGasPrice.mul(100 + this.manager.config.GAS_BUMP_PERCENTAGE).div(100),
         oldGasPrice.add(minGweiBump),
       )
       this.tx.gasPrice = min(newGasPrice, maxGasPrice).toHexString()
@@ -379,11 +400,11 @@ class Transaction {
       }
 
       const newMaxFeePerGas = max(
-        oldMaxFeePerGas.mul(100 + this.config.GAS_BUMP_PERCENTAGE).div(100),
+        oldMaxFeePerGas.mul(100 + this.manager.config.GAS_BUMP_PERCENTAGE).div(100),
         oldMaxFeePerGas.add(minGweiBump),
       )
       const newMaxPriorityFeePerGas = max(
-        oldMaxPriorityFeePerGas.mul(100 + this.config.GAS_BUMP_PERCENTAGE).div(100),
+        oldMaxPriorityFeePerGas.mul(100 + this.manager.config.GAS_BUMP_PERCENTAGE).div(100),
         oldMaxPriorityFeePerGas.add(minGweiBump),
       )
 
@@ -399,27 +420,13 @@ class Transaction {
   }
 
   /**
-   * Fetches gas price from the oracle
-   *
-   * @param {'instant'|'fast'|'normal'|'slow'} type
-   * @returns {Promise<string>} A hex string representing gas price in wei
-   * @private
-   */
-  async _getGasPrice(type) {
-    const gasPrices = await this._gasPriceOracle.gasPrices()
-    const result = gasPrices[type].toString()
-    console.log(`${type} gas price is now ${result} gwei`)
-    return parseUnits(result, 'gwei').toHexString()
-  }
-
-  /**
    * Gets current nonce for the current account, ignoring any pending transactions
    *
    * @returns {Promise<number>}
    * @private
    */
   _getLastNonce() {
-    return this._wallet.getTransactionCount('latest')
+    return this.manager._wallet.getTransactionCount('latest')
   }
 
   /**
@@ -429,35 +436,23 @@ class Transaction {
    * @private
    */
   async _getGasParams() {
-    const maxGasPrice = parseUnits(this.config.MAX_GAS_PRICE.toString(), 'gwei')
-    const block = await this._provider.getBlock('latest')
-
-    // Check network support for EIP-1559
-    if (this.config.ENABLE_EIP1559 && block && block.baseFeePerGas) {
-      const maxPriorityFeePerGas = parseUnits(this.config.DEFAULT_PRIORITY_FEE.toString(), 'gwei')
-
-      const maxFeePerGas = block.baseFeePerGas
-        .mul(100 + this.config.BASE_FEE_RESERVE_PERCENTAGE)
-        .div(100)
-        .add(maxPriorityFeePerGas)
-
-      return {
-        maxFeePerGas: min(maxFeePerGas, maxGasPrice).toHexString(),
-        maxPriorityFeePerGas: min(maxPriorityFeePerGas, maxGasPrice).toHexString(),
-        type: 2,
-      }
+    const maxGasPrice = parseUnits(this.manager.config.MAX_GAS_PRICE.toString(), 'gwei')
+    const gasParams = await this.manager._gasPriceOracle.getTxGasParams({
+      isLegacy: !this.manager.config.ENABLE_EIP1559,
+    })
+    if (gasParams.gasPrice) {
+      gasParams.gasPrice = min(gasParams.gasPrice, maxGasPrice)
     } else {
-      const fastGasPrice = BigNumber.from(await this._getGasPrice('fast'))
-      return {
-        gasPrice: min(fastGasPrice, maxGasPrice).toHexString(),
-        type: 0,
-      }
+      gasParams.maxFeePerGas = min(gasParams?.maxFeePerGas, maxGasPrice)
+      gasParams.maxPriorityFeePerGas = min(gasParams?.maxPriorityFeePerGas, maxGasPrice)
     }
+    gasParams.type = gasParams?.maxFeePerGas ? 2 : 0
+    return gasParams
   }
 
   async _estimateGas(tx) {
     try {
-      return await this._wallet.estimateGas(tx)
+      return await this.manager._wallet.estimateGas(tx)
     } catch (e) {
       return this._handleRpcError(e, '_estimateGas')
     }
